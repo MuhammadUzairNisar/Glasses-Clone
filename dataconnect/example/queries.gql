@@ -1,0 +1,27 @@
+mutation CreateEntry($content: String!, $title: String!, $createdAt: Timestamp!) @auth(level: USER) {
+  entry_insert(data: { content: $content, title: $title, createdAt: $createdAt }) {
+    id
+  }
+}
+
+query GetEntry($id: UUID!) @auth(level: USER) {
+  entry(id: $id) {
+    id
+    content
+    title
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateEntry($id: UUID!, $content: String, $title: String, $updatedAt: Timestamp) @auth(level: USER) {
+  entry_update(id: $id, data: { content: $content, title: $title, updatedAt: $updatedAt }) {
+    id
+  }
+}
+
+mutation DeleteEntry($id: UUID!) @auth(level: USER) {
+  entry_delete(id: $id) {
+    id
+  }
+}

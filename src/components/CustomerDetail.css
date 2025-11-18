@@ -1,0 +1,404 @@
+.customer-detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  overflow-y: auto;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.customer-detail-modal {
+  background: white;
+  border-radius: 16px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 28px;
+  border-bottom: 2px solid #e8e8e8;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.detail-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+.detail-content {
+  padding: 28px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.detail-section {
+  margin-bottom: 32px;
+  padding: 24px;
+  background: #fafafa;
+  border-radius: 12px;
+  border: 1px solid #e8e8e8;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #667eea;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-item label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-item span {
+  font-size: 16px;
+  color: #333;
+  font-weight: 500;
+}
+
+.detail-item span.highlight {
+  font-size: 18px;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.badge-yes {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge-no {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Prescription Details */
+.prescription-details {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.prescription-eye-detail {
+  padding: 20px;
+  background: white;
+  border-radius: 10px;
+  border: 1px solid #e8e8e8;
+}
+
+.prescription-eye-detail h4 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #667eea;
+  margin-bottom: 16px;
+  text-align: center;
+  padding: 10px;
+  background: #f0f4ff;
+  border-radius: 8px;
+}
+
+.prescription-fields-detail {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.prescription-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prescription-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.prescription-field span {
+  font-size: 16px;
+  color: #333;
+  font-weight: 600;
+}
+
+.prescription-extra-detail {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e8e8e8;
+}
+
+/* Products Table */
+.products-detail {
+  overflow-x: auto;
+}
+
+.products-table-detail {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.products-table-detail thead {
+  background: #667eea;
+  color: white;
+}
+
+.products-table-detail th {
+  padding: 12px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.products-table-detail tbody tr {
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.products-table-detail tbody tr:hover {
+  background: #f9fafb;
+}
+
+.products-table-detail td {
+  padding: 12px;
+  font-size: 14px;
+  color: #333;
+}
+
+.products-table-detail .amount {
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+/* Payment Details */
+.payment-detail {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.payment-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: white;
+  border-radius: 10px;
+  border: 2px solid #e8e8e8;
+}
+
+.payment-item label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.amount-large {
+  font-size: 24px;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  color: #333;
+}
+
+.amount-large.paid {
+  color: #10b981;
+}
+
+.amount-large.remaining {
+  color: #dc2626;
+}
+
+/* Notes */
+.notes-detail {
+  padding: 20px;
+  background: white;
+  border-radius: 10px;
+  border: 1px solid #e8e8e8;
+}
+
+.notes-detail p {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #333;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.detail-footer {
+  padding: 20px 28px;
+  border-top: 2px solid #e8e8e8;
+  display: flex;
+  justify-content: flex-end;
+  background: #fafafa;
+}
+
+.close-button {
+  padding: 12px 32px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.close-button:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .customer-detail-modal {
+    max-width: 100%;
+    max-height: 95vh;
+    margin: 10px;
+  }
+
+  .detail-header {
+    padding: 20px;
+  }
+
+  .detail-header h2 {
+    font-size: 20px;
+  }
+
+  .detail-content {
+    padding: 20px;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .prescription-fields-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .prescription-extra-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .products-table-detail {
+    font-size: 12px;
+  }
+
+  .products-table-detail th,
+  .products-table-detail td {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .customer-detail-overlay {
+    padding: 10px;
+  }
+
+  .detail-section {
+    padding: 16px;
+  }
+
+  .section-title {
+    font-size: 18px;
+  }
+}
+

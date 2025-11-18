@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    height: 100%;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #f5f7fa;
+    margin: 0;
+    padding: 0;
+  }
+
+  code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+      monospace;
+  }
+}
+
+/* Print Styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  .invoice-content,
+  .invoice-content * {
+    visibility: visible !important;
+  }
+  
+  .invoice-content {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    page-break-inside: avoid !important;
+  }
+  
+  .invoice-content h1 {
+    font-size: 20px !important;
+    margin-bottom: 8px !important;
+  }
+  
+  .invoice-content h2,
+  .invoice-content h3 {
+    font-size: 14px !important;
+    margin-bottom: 5px !important;
+  }
+  
+  .invoice-content p,
+  .invoice-content span {
+    font-size: 10px !important;
+    line-height: 1.3 !important;
+  }
+  
+  .invoice-content table {
+    font-size: 9px !important;
+  }
+  
+  .invoice-content table th,
+  .invoice-content table td {
+    padding: 4px 6px !important;
+  }
+  
+  .print\\:hidden {
+    display: none !important;
+  }
+  
+  .print\\:shadow-none {
+    box-shadow: none !important;
+  }
+  
+  .print\\:block {
+    display: block !important;
+  }
+  
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+}
+

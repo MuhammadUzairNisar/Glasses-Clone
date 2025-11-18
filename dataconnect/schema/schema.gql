@@ -1,0 +1,6 @@
+type Entry @table {
+  title: String!
+  content: String!
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+}

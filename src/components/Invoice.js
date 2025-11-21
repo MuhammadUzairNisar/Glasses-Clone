@@ -67,7 +67,8 @@ const Invoice = () => {
         
         filtered = filtered.filter(customer => {
           if (!customer.createdAt) return false;
-          const customerDate = customer.createdAt.toDate ? customer.createdAt.toDate() : new Date(customer.createdAt);
+          const customerDate = parseDate(customer.createdAt);
+          if (!customerDate || isNaN(customerDate.getTime())) return false;
           return customerDate >= searchDateObj && customerDate <= endDate;
         });
       }
@@ -133,8 +134,24 @@ const Invoice = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
+  // Helper function to parse Firestore timestamps
+  const parseDate = (dateValue) => {
+    if (!dateValue) return null;
+    if (dateValue.toDate) {
+      return dateValue.toDate();
+    }
+    if (dateValue.seconds) {
+      return new Date(dateValue.seconds * 1000);
+    }
+    if (typeof dateValue === 'string' || typeof dateValue === 'number') {
+      return new Date(dateValue);
+    }
+    return null;
+  };
+
+  const formatDate = (dateValue) => {
+    const date = parseDate(dateValue);
+    if (!date || isNaN(date.getTime())) return 'N/A';
     return date.toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'long',
@@ -142,8 +159,9 @@ const Invoice = () => {
     });
   };
 
-  const formatDateTime = (dateString) => {
-    const date = new Date(dateString);
+  const formatDateTime = (dateValue) => {
+    const date = parseDate(dateValue);
+    if (!date || isNaN(date.getTime())) return 'N/A';
     return date.toLocaleString('en-IN', {
       day: 'numeric',
       month: 'long',
@@ -168,15 +186,18 @@ const Invoice = () => {
   };
 
   const handlePrint = (customer = null) => {
-    if (customer) {
-      // Print single invoice
+    // Don't change state if customer is already selected
+    if (customer && customer._id !== selectedCustomer?._id) {
       setSelectedCustomer(customer);
+      // Wait for state to update before printing
+      setTimeout(() => {
+        window.print();
+      }, 200);
+    } else {
+      // Print immediately if customer is already selected or no customer passed
       setTimeout(() => {
         window.print();
       }, 100);
-    } else {
-      // Print all selected invoices
-      window.print();
     }
   };
 
@@ -192,28 +213,82 @@ const Invoice = () => {
   };
 
   const handleSavePDF = (customer = null) => {
-    const customerToSave = customer || selectedCustomer;
-    if (!customerToSave) return;
-
-    const doc = new jsPDF();
+    // Try to get customer data from multiple sources - prioritize passed customer
+    let customerToSave = customer || selectedCustomer;
     
-    // Header - Exact match to print template
+    // If still no customer and we have selectedCustomers with one item, use that
+    if (!customerToSave && selectedCustomers.length === 1) {
+      customerToSave = selectedCustomers[0];
+    }
+    
+    // If still no customer, try to get from the first customer in the list
+    if (!customerToSave && customers.length > 0) {
+      customerToSave = customers[0];
+    }
+    
+    if (!customerToSave) {
+      console.error('No customer data available for PDF');
+      setError('No customer data available. Please select a customer first.');
+      setTimeout(() => setError(''), 5000);
+      return;
+    }
+
+    // Create a deep copy to avoid any reference issues
+    const customerData = JSON.parse(JSON.stringify(customerToSave));
+    
+    console.log('Saving PDF for customer:', customerData);
+    console.log('Customer products:', customerData.products);
+    console.log('Customer payment:', customerData.payment);
+    console.log('Products array length:', customerData.products?.length);
+    console.log('Customer ID:', customerData._id);
+    console.log('Customer Name:', customerData.customerName);
+
+    // Validate that we have essential data
+    if (!customerData.customerName && !customerData.products) {
+      console.error('Customer data is incomplete:', customerData);
+      setError('Customer data is incomplete. Cannot generate PDF.');
+      setTimeout(() => setError(''), 5000);
+      return;
+    }
+
+    try {
+      const doc = new jsPDF();
+    
+    // Add business card background/watermark
+    // Blue bands at top and bottom (matching business card design)
+    doc.setFillColor(0, 51, 102); // Blue color matching business card
+    doc.rect(0, 0, 210, 12, 'F'); // Top band (increased height for header)
+    doc.rect(0, doc.internal.pageSize.height - 8, 210, 8, 'F'); // Bottom band
+    
+    // Prominent watermark in header area
+    doc.setTextColor(255, 255, 255); // White text on blue background
+    doc.setFontSize(24); // Large, prominent font size
+    doc.setFont('helvetica', 'bold');
+    doc.text('HAJI NAWAB DIN & SONS OPTICAL', 105, 8, { align: 'center' });
+    
+    // Proprietor name in header
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Prop: Adeel Feroz', 105, 11, { align: 'center' });
+    
+    // Reset text color for rest of document
+    doc.setTextColor(0, 0, 0);
+    
+    // Business card information will be added at the end after we know the final Y position
+    
+    // Header - Invoice title below the blue band
     doc.setFontSize(18); // text-2xl equivalent
     doc.setFont('helvetica', 'bold');
-    doc.text('HAJI NAWAB DIN OPTICAL SERVICE', 105, 20, { align: 'center' });
-    
-    doc.setFontSize(10); // text-sm equivalent
-    doc.setFont('helvetica', 'normal');
-    doc.text('Invoice', 105, 27, { align: 'center' });
+    doc.text('INVOICE', 105, 20, { align: 'center' });
     
     // Draw border-b-2 border-gray-400 under header
     doc.setDrawColor(150, 150, 150);
     doc.setLineWidth(0.5);
-    doc.line(20, 30, 190, 30);
+    doc.line(20, 25, 190, 25);
     
     // Invoice Details - Exact match to print template
     // grid grid-cols-2 gap-4 mb-6
-    let yPos = 40;
+    let yPos = 35; // Adjusted for new header height
     
     // Left side - Invoice Details (no background box, just text)
     doc.setFont('helvetica', 'bold');
@@ -223,11 +298,15 @@ const Invoice = () => {
     doc.setFontSize(8); // text-xs
     doc.text('Invoice No:', 20, yPos + 4);
     doc.setFont('helvetica', 'bold'); // font-semibold
-    doc.text(customerToSave.customerId || (customerToSave._id ? customerToSave._id.slice(-8).toUpperCase() : 'N/A'), 50, yPos + 4);
+    const invoiceNo = String(customerData.customerId || (customerData._id ? customerData._id.slice(-8).toUpperCase() : 'N/A'));
+    console.log('Invoice No:', invoiceNo);
+    doc.text(invoiceNo, 50, yPos + 4);
     doc.setFont('helvetica', 'normal');
     doc.text('Date & Time:', 20, yPos + 8);
     doc.setFont('helvetica', 'bold'); // font-semibold
-    doc.text(formatDateTime(customerToSave.createdAt), 50, yPos + 8);
+    const dateTimeStr = String(formatDateTime(customerData.createdAt));
+    console.log('Date & Time:', dateTimeStr);
+    doc.text(dateTimeStr, 50, yPos + 8);
     doc.setFont('helvetica', 'normal');
     
     // Right side - Bill To (no background box, just text)
@@ -237,9 +316,13 @@ const Invoice = () => {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8); // text-xs
     doc.setFont('helvetica', 'bold'); // font-semibold
-    doc.text(customerToSave.customerName || 'N/A', 120, yPos + 4);
+    const customerNameStr = String(customerData.customerName || 'N/A');
+    console.log('Customer Name:', customerNameStr);
+    doc.text(customerNameStr, 120, yPos + 4);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Phone: ${customerToSave.phoneNumber || 'N/A'}`, 120, yPos + 8);
+    const phoneStr = `Phone: ${String(customerData.phoneNumber || 'N/A')}`;
+    console.log('Phone:', phoneStr);
+    doc.text(phoneStr, 120, yPos + 8);
     
     yPos += 20; // mb-6 equivalent
     
@@ -263,11 +346,13 @@ const Invoice = () => {
     // Table rows - border border-gray-400
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8); // text-xs
-    if (customerToSave.products && customerToSave.products.length > 0) {
-      customerToSave.products.forEach((product) => {
+    if (customerData.products && customerData.products.length > 0) {
+      console.log('Adding products to PDF, count:', customerData.products.length);
+      customerData.products.forEach((product, idx) => {
         if (yPos > 240) {
           return;
         }
+        console.log(`Product ${idx}:`, product);
         // Draw borders for each cell
         doc.setDrawColor(150, 150, 150); // border-gray-400
         doc.setLineWidth(0.1);
@@ -281,15 +366,32 @@ const Invoice = () => {
         doc.line(120, yPos - 2, 120, yPos + 1);
         doc.line(160, yPos - 2, 160, yPos + 1);
         
-        doc.text(product.category || '-', 22, yPos);
-        doc.text((product.description || '-').substring(0, 20), 52, yPos);
-        doc.text(String(product.qty || 0), 102, yPos);
-        doc.text(formatCurrency(product.price), 122, yPos);
+        const category = String(product.category || '-');
+        const description = String(product.description || '-').substring(0, 20);
+        const qty = String(product.qty || 0);
+        const price = formatCurrency(product.price || 0);
+        const total = formatCurrency(product.total || 0);
+        
+        console.log(`Adding product row ${idx}:`, { category, description, qty, price, total });
+        
+        doc.text(category, 22, yPos);
+        doc.text(description, 52, yPos);
+        doc.text(qty, 102, yPos);
+        doc.text(price, 122, yPos);
         doc.setFont('helvetica', 'bold'); // font-semibold
-        doc.text(formatCurrency(product.total), 162, yPos);
+        doc.text(total, 162, yPos);
         doc.setFont('helvetica', 'normal');
         yPos += 4;
       });
+    } else {
+      console.log('No products found, showing message');
+      // Show "No products found" message
+      doc.setDrawColor(150, 150, 150);
+      doc.setLineWidth(0.1);
+      doc.line(20, yPos - 2, 190, yPos - 2);
+      doc.line(20, yPos + 1, 190, yPos + 1);
+      doc.text('No products found', 22, yPos);
+      yPos += 4;
     }
     
     const finalY = yPos + 5; // mb-4 equivalent
@@ -298,7 +400,7 @@ const Invoice = () => {
     // grid grid-cols-2 gap-4 mb-4
     // Left side - Prescription Details
     let presY = finalY;
-    if (customerToSave.hasPrescription) {
+    if (customerData.hasPrescription) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8); // text-xs
       doc.text('Prescription Details', 20, presY);
@@ -306,32 +408,32 @@ const Invoice = () => {
       doc.setFontSize(8); // text-xs
       
       presY += 4;
-      if (customerToSave.prescription?.right) {
-        doc.text(`Right Eye - SPH: ${customerToSave.prescription.right.sph || 'N/A'}, CYL: ${customerToSave.prescription.right.cyl || 'N/A'}, AXIS: ${customerToSave.prescription.right.axis || 'N/A'}`, 20, presY);
+      if (customerData.prescription?.right) {
+        doc.text(`Right Eye - SPH: ${customerData.prescription.right.sph || 'N/A'}, CYL: ${customerData.prescription.right.cyl || 'N/A'}, AXIS: ${customerData.prescription.right.axis || 'N/A'}`, 20, presY);
         presY += 3;
       }
-      if (customerToSave.prescription?.left) {
-        doc.text(`Left Eye - SPH: ${customerToSave.prescription.left.sph || 'N/A'}, CYL: ${customerToSave.prescription.left.cyl || 'N/A'}, AXIS: ${customerToSave.prescription.left.axis || 'N/A'}`, 20, presY);
+      if (customerData.prescription?.left) {
+        doc.text(`Left Eye - SPH: ${customerData.prescription.left.sph || 'N/A'}, CYL: ${customerData.prescription.left.cyl || 'N/A'}, AXIS: ${customerData.prescription.left.axis || 'N/A'}`, 20, presY);
         presY += 3;
       }
-      if (customerToSave.prescription?.ipd) {
-        doc.text(`IPD: ${customerToSave.prescription.ipd}`, 20, presY);
+      if (customerData.prescription?.ipd) {
+        doc.text(`IPD: ${customerData.prescription.ipd}`, 20, presY);
         presY += 3;
       }
-      if (customerToSave.prescription?.add) {
-        doc.text(`ADD: ${customerToSave.prescription.add}`, 20, presY);
+      if (customerData.prescription?.add) {
+        doc.text(`ADD: ${customerData.prescription.add}`, 20, presY);
         presY += 3;
       }
     }
     
     // Notes
-    if (customerToSave.notes) {
+    if (customerData.notes) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8); // text-xs
       doc.text('Notes', 20, presY);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8); // text-xs
-      doc.text(customerToSave.notes, 20, presY + 4, { maxWidth: 90 });
+      doc.text(customerData.notes, 20, presY + 4, { maxWidth: 90 });
     }
     
     // Right side - Payment Summary (bg-gray-100 p-3 rounded border border-gray-300)
@@ -350,13 +452,17 @@ const Invoice = () => {
     doc.setFontSize(8); // text-xs
     doc.text('Total Amount:', 125, paymentY + 4);
     doc.setFont('helvetica', 'bold');
-    doc.text(formatCurrency(customerToSave.payment?.amount || calculateTotal(customerToSave.products)), 185, paymentY + 4, { align: 'right' });
+    const totalAmount = formatCurrency(customerData.payment?.amount || calculateTotal(customerData.products));
+    console.log('Total Amount:', totalAmount);
+    doc.text(totalAmount, 185, paymentY + 4, { align: 'right' });
     
     doc.setFont('helvetica', 'normal');
     doc.text('Paid:', 125, paymentY + 8);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 100, 0); // text-green-700
-    doc.text(formatCurrency(customerToSave.payment?.paid || 0), 185, paymentY + 8, { align: 'right' });
+    const paidAmount = formatCurrency(customerData.payment?.paid || 0);
+    console.log('Paid:', paidAmount);
+    doc.text(paidAmount, 185, paymentY + 8, { align: 'right' });
     doc.setTextColor(0, 0, 0);
     
     // Draw divider line (border-t-2 border-gray-400)
@@ -368,24 +474,59 @@ const Invoice = () => {
     doc.setTextColor(0, 0, 0);
     doc.text('Remaining:', 125, paymentY + 14);
     doc.setTextColor(200, 0, 0); // text-red-700
-    doc.text(formatCurrency(customerToSave.payment?.remaining || 0), 185, paymentY + 14, { align: 'right' });
+    const remainingAmount = formatCurrency(customerData.payment?.remaining || 0);
+    console.log('Remaining:', remainingAmount);
+    doc.text(remainingAmount, 185, paymentY + 14, { align: 'right' });
     doc.setTextColor(0, 0, 0);
     
     // Footer - Exact match to print template
     // border-t-2 border-gray-400 pt-2 mt-4
-    doc.setDrawColor(150, 150, 150); // border-gray-400
-    doc.setLineWidth(0.2);
-    doc.line(20, doc.internal.pageSize.height - 12, 190, doc.internal.pageSize.height - 12);
-    doc.setFontSize(8); // text-xs
-    doc.setFont('helvetica', 'bold'); // font-semibold
-    doc.text('Thank you for your business!', 105, doc.internal.pageSize.height - 8, { align: 'center' });
+    // Calculate final position and ensure it fits on current page
+    const pageHeight = doc.internal.pageSize.height;
+    const maxFooterY = pageHeight - 25; // Leave more space for footer and bottom band to prevent page break
+    const footerY = Math.min(paymentY + 25, maxFooterY); // Ensure footer is within page bounds
+    
+    // Only add footer if it fits on current page
+    if (footerY < pageHeight - 20) {
+      // Ensure we're on page 1
+      doc.setPage(1);
+      doc.setDrawColor(150, 150, 150); // border-gray-400
+      doc.setLineWidth(0.2);
+      doc.line(20, footerY, 190, footerY);
+      doc.setFontSize(8); // text-xs
+      doc.setFont('helvetica', 'bold'); // font-semibold
+      doc.text('Thank you for your business!', 105, footerY + 4, { align: 'center' });
+    }
+    
+    // Business card information in the blue footer band (white text on blue)
+    // Ensure we're on page 1 and content fits before adding footer text
+    doc.setPage(1);
+    // Only add if footer was added (meaning content fits on page)
+    if (footerY < pageHeight - 20) {
+      const bottomBandTop = pageHeight - 8;
+      doc.setFontSize(6);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(255, 255, 255); // White text on blue background
+      // Position text safely within the blue band (8mm high)
+      doc.text('HAJI NAWAB DIN & SONS OPTICAL | Prop: Adeel Feroz', 105, bottomBandTop + 1.5, { align: 'center' });
+      doc.text('Phone: 0321-7940339, 0321-6643839, 041-8725875 | Main Susan Road, Faisalabad', 105, bottomBandTop + 4.5, { align: 'center' });
+      doc.setTextColor(0, 0, 0); // Reset to black
+    }
     
     // Save PDF with random number
     const randomNumber = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
-    const dateStr = new Date(customerToSave.createdAt).toISOString().split('T')[0];
-    const customerName = (customerToSave.customerName || 'Customer').replace(/[^a-zA-Z0-9]/g, '_');
+    const dateObj = parseDate(customerData.createdAt);
+    const dateStr = dateObj && !isNaN(dateObj.getTime()) ? dateObj.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const customerName = (customerData.customerName || 'Customer').replace(/[^a-zA-Z0-9]/g, '_');
     const fileName = `Invoice_${customerName}_${dateStr}_${randomNumber}.pdf`;
+    console.log('Saving PDF as:', fileName);
     doc.save(fileName);
+    console.log('PDF saved successfully');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      setError('Failed to generate PDF. Please try again.');
+      setTimeout(() => setError(''), 5000);
+    }
   };
 
   const handleSaveSelectedPDFs = () => {
@@ -407,23 +548,39 @@ const Invoice = () => {
       }
       isFirstPage = false;
 
-      // Header - Exact match to print template (lines 858-861)
+      // Add business card background/watermark for each page
+      // Blue bands at top and bottom (matching business card design)
+      doc.setFillColor(0, 51, 102); // Blue color matching business card
+      doc.rect(0, 0, 210, 12, 'F'); // Top band (increased height for header)
+      doc.rect(0, doc.internal.pageSize.height - 8, 210, 8, 'F'); // Bottom band
+      
+      // Prominent watermark in header area
+      doc.setTextColor(255, 255, 255); // White text on blue background
+      doc.setFontSize(24); // Large, prominent font size
+      doc.setFont('helvetica', 'bold');
+      doc.text('HAJI NAWAB DIN & SONS OPTICAL', 105, 8, { align: 'center' });
+      
+      // Proprietor name in header
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Prop: Adeel Feroz', 105, 11, { align: 'center' });
+      
+      // Reset text color for rest of document
+      doc.setTextColor(0, 0, 0);
+      
+      // Header - Invoice title below the blue band
       doc.setFontSize(18); // text-2xl equivalent
       doc.setFont('helvetica', 'bold');
-      doc.text('HAJI NAWAB DIN OPTICAL SERVICE', 105, 20, { align: 'center' });
-      
-      doc.setFontSize(10); // text-sm equivalent
-      doc.setFont('helvetica', 'normal');
-      doc.text('Invoice', 105, 27, { align: 'center' });
+      doc.text('INVOICE', 105, 20, { align: 'center' });
       
       // Draw border-b-2 border-gray-400 under header
       doc.setDrawColor(150, 150, 150);
       doc.setLineWidth(0.5);
-      doc.line(20, 30, 190, 30);
+      doc.line(20, 25, 190, 25);
       
       // Invoice Details - Exact match to print template (lines 863-875)
       // grid grid-cols-2 gap-4 mb-6
-      let yPos = 40;
+      let yPos = 35; // Adjusted for new header height
       
       // Left side - Invoice Details (no background box, just text)
       doc.setFont('helvetica', 'bold');
@@ -583,12 +740,33 @@ const Invoice = () => {
       
       // Footer - Exact match to print template (lines 965-968)
       // border-t-2 border-gray-400 pt-2 mt-4
-      doc.setDrawColor(150, 150, 150); // border-gray-400
-      doc.setLineWidth(0.2);
-      doc.line(20, doc.internal.pageSize.height - 12, 190, doc.internal.pageSize.height - 12);
-      doc.setFontSize(8); // text-xs
-      doc.setFont('helvetica', 'bold'); // font-semibold
-      doc.text('Thank you for your business!', 105, doc.internal.pageSize.height - 8, { align: 'center' });
+      // Calculate final position and ensure it fits on current page
+      const pageHeight = doc.internal.pageSize.height;
+      const maxFooterY = pageHeight - 25; // Leave more space for footer and bottom band to prevent page break
+      const footerY = Math.min(paymentY + 25, maxFooterY); // Ensure footer is within page bounds
+      
+      // Only add footer if it fits on current page
+      if (footerY < pageHeight - 20) {
+        doc.setDrawColor(150, 150, 150); // border-gray-400
+        doc.setLineWidth(0.2);
+        doc.line(20, footerY, 190, footerY);
+        doc.setFontSize(8); // text-xs
+        doc.setFont('helvetica', 'bold'); // font-semibold
+        doc.text('Thank you for your business!', 105, footerY + 4, { align: 'center' });
+      }
+      
+      // Business card information in the blue footer band (white text on blue)
+      // Only add if footer was added (meaning content fits on page)
+      if (footerY < pageHeight - 20) {
+        const bottomBandTop = pageHeight - 8;
+        doc.setFontSize(6);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(255, 255, 255); // White text on blue background
+        // Position text safely within the blue band (8mm high)
+        doc.text('HAJI NAWAB DIN & SONS OPTICAL | Prop: Adeel Feroz', 105, bottomBandTop + 1.5, { align: 'center' });
+        doc.text('Phone: 0321-7940339, 0321-6643839, 041-8725875 | Main Susan Road, Faisalabad', 105, bottomBandTop + 4.5, { align: 'center' });
+        doc.setTextColor(0, 0, 0); // Reset to black
+      }
     });
 
     // Save PDF with random number
@@ -600,7 +778,9 @@ const Invoice = () => {
 
   // Filter customers by date and phone number (only after search)
   const filteredCustomers = selectedDate || selectedPhone ? customers.filter(customer => {
-    const customerDate = new Date(customer.createdAt).toISOString().split('T')[0];
+    const customerDateObj = parseDate(customer.createdAt);
+    if (!customerDateObj || isNaN(customerDateObj.getTime())) return false;
+    const customerDate = customerDateObj.toISOString().split('T')[0];
     const matchesDate = !selectedDate || customerDate === selectedDate;
     const matchesPhone = !selectedPhone || customer.phoneNumber?.includes(selectedPhone);
     return matchesDate && matchesPhone;
@@ -777,11 +957,17 @@ const Invoice = () => {
 
       {/* Invoice Template - Only show when single invoice or when explicitly selected */}
       {selectedCustomer && selectedCustomers.length <= 1 && (
-        <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 print:shadow-none invoice-content">
+        <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 print:shadow-none invoice-content print:hidden">
           {/* Print Actions - Hidden when printing */}
           <div className="mb-6 flex gap-4 print:hidden">
             <button
-              onClick={handlePrint}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (selectedCustomer) {
+                  handlePrint(selectedCustomer);
+                }
+              }}
               className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -790,7 +976,13 @@ const Invoice = () => {
               Print Invoice
             </button>
             <button
-              onClick={handleSavePDF}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (selectedCustomer) {
+                  handleSavePDF(selectedCustomer);
+                }
+              }}
               className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -918,16 +1110,33 @@ const Invoice = () => {
         </div>
       )}
 
-      {/* Print View - Show all selected invoices when printing */}
-      {selectedInvoiceIds.size > 0 && (
+      {/* Print View - Show all selected invoices when printing OR single invoice */}
+      {((selectedInvoiceIds.size > 0) || (selectedCustomer && selectedCustomers.length <= 1)) && (
         <div className="hidden print:block">
-          {selectedCustomers
-            .filter(c => selectedInvoiceIds.has(c._id))
-            .map((customer, index) => (
+          {(() => {
+            // If single invoice, use selectedCustomer; otherwise use selected invoices
+            let invoicesToPrint = [];
+            if (selectedCustomers.length <= 1 && selectedCustomer) {
+              invoicesToPrint = [selectedCustomer];
+            } else if (selectedInvoiceIds.size > 0) {
+              invoicesToPrint = selectedCustomers.filter(c => selectedInvoiceIds.has(c._id));
+            } else if (selectedCustomers.length > 0) {
+              // Fallback: use all selected customers
+              invoicesToPrint = selectedCustomers;
+            }
+            
+            // Filter out any null/undefined customers
+            invoicesToPrint = invoicesToPrint.filter(c => c != null);
+            
+            if (invoicesToPrint.length === 0) {
+              return null;
+            }
+            
+            return invoicesToPrint.map((customer, index) => (
               <div 
                 key={customer._id || customer.id} 
                 className="invoice-content mb-8" 
-                style={{ pageBreakAfter: index < Array.from(selectedInvoiceIds).length - 1 ? 'always' : 'auto' }}
+                style={{ pageBreakAfter: index < invoicesToPrint.length - 1 ? 'always' : 'auto' }}
               >
                 {/* Header */}
                 <div className="text-center mb-6 border-b-2 border-gray-400 pb-3">
@@ -1042,7 +1251,8 @@ const Invoice = () => {
                   <p className="text-xs text-gray-600 font-semibold">Thank you for your business!</p>
                 </div>
               </div>
-            ))}
+            ));
+          })()}
         </div>
       )}
 

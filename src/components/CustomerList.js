@@ -79,10 +79,30 @@ const CustomerList = () => {
   const groupedCustomers = groupCustomersByPhone(filteredCustomers);
   const phoneNumbers = Object.keys(groupedCustomers).sort();
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+  const formatDate = (dateValue) => {
+    if (!dateValue) return 'N/A';
+    
+    // Handle Firestore Timestamp objects
+    let date;
+    if (dateValue.toDate && typeof dateValue.toDate === 'function') {
+      // Firestore Timestamp with toDate() method
+      date = dateValue.toDate();
+    } else if (dateValue.seconds) {
+      // Firestore Timestamp with seconds property
+      date = new Date(dateValue.seconds * 1000);
+    } else if (typeof dateValue === 'string' || typeof dateValue === 'number') {
+      // Regular date string or timestamp
+      date = new Date(dateValue);
+    } else {
+      return 'N/A';
+    }
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'N/A';
+    }
+    
+    return date.toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

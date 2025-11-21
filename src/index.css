@@ -88,8 +88,55 @@
   }
   
   @page {
-    margin: 1cm;
+    margin: 0;
     size: A4;
+  }
+  
+  /* Business card background for invoices - Blue bands */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 8mm;
+    background-color: #003366;
+    z-index: 9999;
+  }
+  
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 8mm;
+    background-color: #003366;
+    z-index: 9999;
+  }
+  
+  /* Business card footer information */
+  .invoice-content {
+    position: relative;
+    padding-top: 10mm;
+    padding-bottom: 20mm;
+  }
+  
+  /* Add footer text using a pseudo-element on the last invoice content */
+  .invoice-content:last-of-type::after {
+    content: 'HAJI NAWAB DIN & SONS OPTICAL | Prop: Adeel Feroz\A Phone: 0321-7940339, 0321-6643839, 041-8725875 | Main Susan Road, Faisalabad';
+    position: fixed;
+    bottom: 2mm;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 5pt !important;
+    color: #666;
+    white-space: pre-line;
+    line-height: 1.2;
+    z-index: 10000;
+    background-color: transparent;
+    height: auto;
   }
 }
 

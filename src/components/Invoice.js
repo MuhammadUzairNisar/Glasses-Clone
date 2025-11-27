@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getCustomers } from '../services/customers';
+import { getCustomers, getCustomerById, updateCustomer } from '../services/customers';
 import jsPDF from 'jspdf';
 
-const Invoice = () => {
+const Invoice = ({ initialCustomerId }) => {
   const [customers, setCustomers] = useState([]);
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -13,10 +13,49 @@ const Invoice = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState(new Set());
+  const [hasAutoPrinted, setHasAutoPrinted] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentUpdate, setPaymentUpdate] = useState({ paid: '', remaining: '' });
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
   }, []);
+
+  // Handle initial customer ID from save and print
+  useEffect(() => {
+    if (initialCustomerId && !hasAutoPrinted) {
+      // First try to find in existing customers list
+      const customer = customers.find(c => c._id === initialCustomerId);
+      if (customer) {
+        setSelectedCustomer(customer);
+        setSelectedCustomers([customer]);
+        setSelectedInvoiceIds(new Set([customer._id]));
+        // Auto-print after a short delay
+        setTimeout(() => {
+          handlePrint(customer);
+          setHasAutoPrinted(true);
+        }, 500);
+      } else if (customers.length > 0) {
+        // If customer not found in list, fetch it directly
+        // This handles the case where the customer was just saved
+        getCustomerById(initialCustomerId).then(customer => {
+          if (customer) {
+            setSelectedCustomer(customer);
+            setSelectedCustomers([customer]);
+            setSelectedInvoiceIds(new Set([customer._id]));
+            setTimeout(() => {
+              handlePrint(customer);
+              setHasAutoPrinted(true);
+            }, 500);
+          }
+        }).catch(err => {
+          console.error('Error fetching customer:', err);
+        });
+      }
+      // If customers list is empty, wait for it to load
+    }
+  }, [initialCustomerId, customers, hasAutoPrinted]);
 
   const fetchCustomers = async () => {
     try {
@@ -320,9 +359,31 @@ const Invoice = () => {
     console.log('Customer Name:', customerNameStr);
     doc.text(customerNameStr, 120, yPos + 4);
     doc.setFont('helvetica', 'normal');
-    const phoneStr = `Phone: ${String(customerData.phoneNumber || 'N/A')}`;
-    console.log('Phone:', phoneStr);
-    doc.text(phoneStr, 120, yPos + 8);
+    if (customerData.familyMember) {
+      let familyMemberStr = `Family Member: ${String(customerData.familyMember)}`;
+      if (customerData.familyMemberRelation) {
+        familyMemberStr += ` (${String(customerData.familyMemberRelation)})`;
+      }
+      doc.text(familyMemberStr, 120, yPos + 8);
+      const phoneStr = `Phone: ${String(customerData.phoneNumber || 'N/A')}`;
+      console.log('Phone:', phoneStr);
+      doc.text(phoneStr, 120, yPos + 12);
+      if (customerData.doctorName) {
+        const doctorStr = `Doctor: ${String(customerData.doctorName)}`;
+        doc.text(doctorStr, 120, yPos + 16);
+        yPos += 4; // Extra space for doctor line
+      }
+      yPos += 4; // Extra space for family member line
+    } else {
+      const phoneStr = `Phone: ${String(customerData.phoneNumber || 'N/A')}`;
+      console.log('Phone:', phoneStr);
+      doc.text(phoneStr, 120, yPos + 8);
+      if (customerData.doctorName) {
+        const doctorStr = `Doctor: ${String(customerData.doctorName)}`;
+        doc.text(doctorStr, 120, yPos + 12);
+        yPos += 4; // Extra space for doctor line
+      }
+    }
     
     yPos += 20; // mb-6 equivalent
     
@@ -606,7 +667,25 @@ const Invoice = () => {
       doc.setFont('helvetica', 'bold'); // font-semibold
       doc.text(customer.customerName || 'N/A', 120, yPos + 4);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Phone: ${customer.phoneNumber || 'N/A'}`, 120, yPos + 8);
+      if (customer.familyMember) {
+        let familyMemberStr = `Family Member: ${String(customer.familyMember)}`;
+        if (customer.familyMemberRelation) {
+          familyMemberStr += ` (${String(customer.familyMemberRelation)})`;
+        }
+        doc.text(familyMemberStr, 120, yPos + 8);
+        doc.text(`Phone: ${customer.phoneNumber || 'N/A'}`, 120, yPos + 12);
+        if (customer.doctorName) {
+          doc.text(`Doctor: ${customer.doctorName}`, 120, yPos + 16);
+          yPos += 4; // Extra space for doctor line
+        }
+        yPos += 4; // Extra space for family member line
+      } else {
+        doc.text(`Phone: ${customer.phoneNumber || 'N/A'}`, 120, yPos + 8);
+        if (customer.doctorName) {
+          doc.text(`Doctor: ${customer.doctorName}`, 120, yPos + 12);
+          yPos += 4; // Extra space for doctor line
+        }
+      }
       
       yPos += 20; // mb-6 equivalent
       
@@ -924,7 +1003,28 @@ const Invoice = () => {
                     <td className="px-3 py-2">{formatDateTime(customer.createdAt)}</td>
                     <td className="px-3 py-2 text-right font-semibold">{formatCurrency(customer.payment?.amount || calculateTotal(customer.products))}</td>
                     <td className="px-3 py-2 text-right">{formatCurrency(customer.payment?.paid || 0)}</td>
-                    <td className="px-3 py-2 text-right font-semibold text-red-600">{formatCurrency(customer.payment?.remaining || 0)}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-red-600">
+                      <div className="flex items-center justify-end gap-2">
+                        <span>{formatCurrency(customer.payment?.remaining || 0)}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedCustomer(customer);
+                            setPaymentUpdate({
+                              paid: customer.payment?.paid || 0,
+                              remaining: customer.payment?.remaining || 0
+                            });
+                            setShowPaymentModal(true);
+                          }}
+                          className="p-1 text-primary-600 hover:text-primary-800 hover:bg-primary-100 rounded transition-colors"
+                          title="Update payment"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-2">
                         <button
@@ -1010,7 +1110,20 @@ const Invoice = () => {
               <div>
                 <h3 className="font-semibold text-gray-700 mb-2">Bill To</h3>
                 <p className="text-sm text-gray-600 font-medium">{selectedCustomer.customerName || 'N/A'}</p>
+                {selectedCustomer.familyMember && (
+                  <p className="text-sm text-gray-600">
+                    Family Member: <span className="font-medium">
+                      {selectedCustomer.familyMember}
+                      {selectedCustomer.familyMemberRelation && (
+                        <span className="text-gray-500"> ({selectedCustomer.familyMemberRelation})</span>
+                      )}
+                    </span>
+                  </p>
+                )}
                 <p className="text-sm text-gray-600">Phone: {selectedCustomer.phoneNumber || 'N/A'}</p>
+                {selectedCustomer.doctorName && (
+                  <p className="text-sm text-gray-600">Doctor: {selectedCustomer.doctorName}</p>
+                )}
               </div>
             </div>
 
@@ -1084,7 +1197,22 @@ const Invoice = () => {
                 )}
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">
-                <h3 className="font-semibold text-gray-700 mb-2 text-sm">Payment Summary</h3>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-semibold text-gray-700 text-sm">Payment Summary</h3>
+                  <button
+                    onClick={() => {
+                      setPaymentUpdate({
+                        paid: selectedCustomer.payment?.paid || 0,
+                        remaining: selectedCustomer.payment?.remaining || 0
+                      });
+                      setShowPaymentModal(true);
+                    }}
+                    className="px-3 py-1 bg-primary-500 hover:bg-primary-600 text-white text-xs font-medium rounded-lg transition-colors"
+                    title="Update payment"
+                  >
+                    ✏️ Update
+                  </button>
+                </div>
                 <div className="space-y-1">
                   <div className="flex justify-between">
                     <span className="text-xs text-gray-600">Total Amount:</span>
@@ -1094,9 +1222,26 @@ const Invoice = () => {
                     <span className="text-xs text-gray-600">Paid:</span>
                     <span className="text-xs font-semibold text-green-600">{formatCurrency(selectedCustomer.payment?.paid || 0)}</span>
                   </div>
-                  <div className="flex justify-between border-t-2 border-gray-300 pt-1 mt-1">
+                  <div className="flex justify-between items-center border-t-2 border-gray-300 pt-1 mt-1">
                     <span className="text-xs font-semibold text-gray-700">Remaining:</span>
-                    <span className="text-xs font-bold text-red-600">{formatCurrency(selectedCustomer.payment?.remaining || 0)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-red-600">{formatCurrency(selectedCustomer.payment?.remaining || 0)}</span>
+                      <button
+                        onClick={() => {
+                          setPaymentUpdate({
+                            paid: selectedCustomer.payment?.paid || 0,
+                            remaining: selectedCustomer.payment?.remaining || 0
+                          });
+                          setShowPaymentModal(true);
+                        }}
+                        className="p-1 text-primary-600 hover:text-primary-800 hover:bg-primary-100 rounded transition-colors"
+                        title="Update payment amount"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1154,7 +1299,20 @@ const Invoice = () => {
                   <div>
                     <h3 className="font-bold text-gray-700 mb-1 text-xs">Bill To</h3>
                     <p className="text-xs text-gray-600 font-semibold">{customer.customerName || 'N/A'}</p>
+                    {customer.familyMember && (
+                      <p className="text-xs text-gray-600">
+                        Family Member: <span className="font-semibold">
+                          {customer.familyMember}
+                          {customer.familyMemberRelation && (
+                            <span className="text-gray-500"> ({customer.familyMemberRelation})</span>
+                          )}
+                        </span>
+                      </p>
+                    )}
                     <p className="text-xs text-gray-600">Phone: {customer.phoneNumber || 'N/A'}</p>
+                    {customer.doctorName && (
+                      <p className="text-xs text-gray-600">Doctor: {customer.doctorName}</p>
+                    )}
                   </div>
                 </div>
 
@@ -1263,6 +1421,158 @@ const Invoice = () => {
               ? 'No customers found. Please adjust your filters and search again.' 
               : 'Please enter date or phone number and click Search to view invoice.'}
           </p>
+        </div>
+      )}
+
+      {/* Payment Update Modal */}
+      {showPaymentModal && selectedCustomer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowPaymentModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Update Payment</h3>
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setError('');
+                }}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Customer Name
+                </label>
+                <input
+                  type="text"
+                  value={selectedCustomer.customerName || 'N/A'}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Total Amount
+                </label>
+                <input
+                  type="text"
+                  value={formatCurrency(selectedCustomer.payment?.amount || calculateTotal(selectedCustomer.products))}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Paid Amount <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={paymentUpdate.paid}
+                  onChange={(e) => {
+                    const paid = parseFloat(e.target.value) || 0;
+                    const total = parseFloat(selectedCustomer.payment?.amount || calculateTotal(selectedCustomer.products)) || 0;
+                    const remaining = Math.max(0, total - paid);
+                    setPaymentUpdate({
+                      paid: paid,
+                      remaining: remaining
+                    });
+                  }}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Enter paid amount"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Remaining Amount
+                </label>
+                <input
+                  type="text"
+                  value={formatCurrency(paymentUpdate.remaining)}
+                  readOnly
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 ${
+                    paymentUpdate.remaining > 0 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'
+                  }`}
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowPaymentModal(false);
+                    setError('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={updating}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!selectedCustomer._id) {
+                      setError('Customer ID not found');
+                      return;
+                    }
+
+                    setUpdating(true);
+                    setError('');
+                    try {
+                      const total = parseFloat(selectedCustomer.payment?.amount || calculateTotal(selectedCustomer.products)) || 0;
+                      const paid = parseFloat(paymentUpdate.paid) || 0;
+                      const remaining = Math.max(0, total - paid);
+
+                      await updateCustomer(selectedCustomer._id, {
+                        payment: {
+                          amount: total,
+                          paid: paid,
+                          remaining: remaining
+                        }
+                      });
+
+                      // Refresh customer data
+                      await fetchCustomers();
+                      
+                      // Update selected customer
+                      const updated = await getCustomerById(selectedCustomer._id);
+                      if (updated) {
+                        setSelectedCustomer(updated);
+                        // Update in selectedCustomers array if it exists
+                        setSelectedCustomers(prev => 
+                          prev.map(c => c._id === updated._id ? updated : c)
+                        );
+                      }
+
+                      setShowPaymentModal(false);
+                      setError('');
+                    } catch (err) {
+                      console.error('Error updating payment:', err);
+                      setError(err.message || 'Failed to update payment');
+                      setTimeout(() => setError(''), 5000);
+                    } finally {
+                      setUpdating(false);
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={updating}
+                >
+                  {updating ? 'Updating...' : 'Update Payment'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

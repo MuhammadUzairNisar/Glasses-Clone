@@ -365,8 +365,9 @@ async function seedCustomers() {
       customerId: 'CUST-001',
       phoneNumber: '03001234567',
       customerName: 'Ahmed Ali',
-      hasPrescription: true,
-      hasCamera: false,
+      familyMember: 'Ahmed Ali',
+      familyMemberRelation: 'Self',
+      doctorName: 'Dr. Muhammad Ali',
       prescription: {
         right: {
           sph: '-2.50',
@@ -409,8 +410,9 @@ async function seedCustomers() {
       customerId: 'CUST-002',
       phoneNumber: '03009876543',
       customerName: 'Fatima Khan',
-      hasPrescription: true,
-      hasCamera: true,
+      familyMember: 'Zainab',
+      familyMemberRelation: 'Daughter',
+      doctorName: 'Dr. Sarah Ahmed',
       prescription: {
         right: {
           sph: '+1.50',
@@ -453,8 +455,9 @@ async function seedCustomers() {
       customerId: 'CUST-003',
       phoneNumber: '03005556677',
       customerName: 'Hassan Raza',
-      hasPrescription: false,
-      hasCamera: false,
+      familyMember: 'Ali',
+      familyMemberRelation: 'Son',
+      doctorName: 'Dr. Ahmed Khan',
       prescription: {
         right: {
           sph: '',
@@ -485,10 +488,447 @@ async function seedCustomers() {
         remaining: 0.00
       },
       createdAt: admin.firestore.FieldValue.serverTimestamp()
+    },
+    {
+      customerId: 'CUST-004',
+      phoneNumber: '03001234567',
+      customerName: 'Ahmed Ali',
+      familyMember: 'Sara',
+      familyMemberRelation: 'Wife',
+      doctorName: 'Dr. Muhammad Ali',
+      prescription: {
+        right: {
+          sph: '-1.75',
+          cyl: '-0.50',
+          axis: '90'
+        },
+        left: {
+          sph: '-2.00',
+          cyl: '-0.50',
+          axis: '85'
+        },
+        ipd: '60.0',
+        add: '1.75'
+      },
+      notes: 'Wife of Ahmed Ali, same phone number',
+      products: [
+        {
+          category: 'frames',
+          description: 'Designer Frames',
+          qty: 1,
+          price: 4000.00,
+          total: 4000.00
+        },
+        {
+          category: 'lenses',
+          description: 'Anti-glare Lenses',
+          qty: 1,
+          price: 3000.00,
+          total: 3000.00
+        }
+      ],
+      payment: {
+        amount: 7000.00,
+        paid: 7000.00,
+        remaining: 0.00
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    },
+    {
+      customerId: 'CUST-005',
+      phoneNumber: '03001234567',
+      customerName: 'Ahmed Ali',
+      familyMember: 'Omar',
+      familyMemberRelation: 'Son',
+      doctorName: 'Dr. Muhammad Ali',
+      prescription: {
+        right: {
+          sph: '-3.00',
+          cyl: '-1.00',
+          axis: '180'
+        },
+        left: {
+          sph: '-3.25',
+          cyl: '-1.25',
+          axis: '175'
+        },
+        ipd: '58.0',
+        add: ''
+      },
+      notes: 'Son of Ahmed Ali, teenager',
+      products: [
+        {
+          category: 'frames',
+          description: 'Youth Frames',
+          qty: 1,
+          price: 2000.00,
+          total: 2000.00
+        },
+        {
+          category: 'lenses',
+          description: 'Single Vision Lenses',
+          qty: 1,
+          price: 2000.00,
+          total: 2000.00
+        }
+      ],
+      payment: {
+        amount: 4000.00,
+        paid: 4000.00,
+        remaining: 0.00
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    },
+    {
+      customerId: 'CUST-006',
+      phoneNumber: '03009876543',
+      customerName: 'Fatima Khan',
+      familyMember: 'Fatima Khan',
+      familyMemberRelation: 'Self',
+      doctorName: 'Dr. Sarah Ahmed',
+      prescription: {
+        right: {
+          sph: '',
+          cyl: '',
+          axis: ''
+        },
+        left: {
+          sph: '',
+          cyl: '',
+          axis: ''
+        },
+        ipd: '',
+        add: ''
+      },
+      notes: 'Self purchase, no prescription needed',
+      products: [
+        {
+          category: 'sunglasses',
+          description: 'Designer Sunglasses',
+          qty: 1,
+          price: 3500.00,
+          total: 3500.00
+        }
+      ],
+      payment: {
+        amount: 3500.00,
+        paid: 3500.00,
+        remaining: 0.00
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    },
+    {
+      customerId: 'CUST-007',
+      phoneNumber: '03009876543',
+      customerName: 'Fatima Khan',
+      familyMember: 'Ayesha',
+      familyMemberRelation: 'Daughter',
+      doctorName: 'Dr. Sarah Ahmed',
+      prescription: {
+        right: {
+          sph: '+2.00',
+          cyl: '-0.75',
+          axis: '90'
+        },
+        left: {
+          sph: '+2.25',
+          cyl: '-0.75',
+          axis: '85'
+        },
+        ipd: '59.0',
+        add: ''
+      },
+      notes: 'Daughter of Fatima Khan',
+      products: [
+        {
+          category: 'frames',
+          description: 'Pink Frames',
+          qty: 1,
+          price: 3000.00,
+          total: 3000.00
+        },
+        {
+          category: 'lenses',
+          description: 'Blue Light Filter Lenses',
+          qty: 1,
+          price: 2500.00,
+          total: 2500.00
+        }
+      ],
+      payment: {
+        amount: 5500.00,
+        paid: 3000.00,
+        remaining: 2500.00
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    },
+    {
+      customerId: 'CUST-008',
+      phoneNumber: '03005556677',
+      customerName: 'Hassan Raza',
+      familyMember: 'Hassan Raza',
+      familyMemberRelation: 'Self',
+      doctorName: 'Dr. Ahmed Khan',
+      prescription: {
+        right: {
+          sph: '-4.50',
+          cyl: '-1.50',
+          axis: '180'
+        },
+        left: {
+          sph: '-4.75',
+          cyl: '-1.75',
+          axis: '175'
+        },
+        ipd: '66.0',
+        add: '2.50'
+      },
+      notes: 'Self purchase with high prescription',
+      products: [
+        {
+          category: 'frames',
+          description: 'Premium Frames',
+          qty: 1,
+          price: 5000.00,
+          total: 5000.00
+        },
+        {
+          category: 'lenses',
+          description: 'High Index Lenses',
+          qty: 1,
+          price: 6000.00,
+          total: 6000.00
+        }
+      ],
+      payment: {
+        amount: 11000.00,
+        paid: 5000.00,
+        remaining: 6000.00
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    },
+    {
+      customerId: 'CUST-009',
+      phoneNumber: '03005556677',
+      customerName: 'Hassan Raza',
+      familyMember: 'Bilal',
+      familyMemberRelation: 'Brother',
+      doctorName: 'Dr. Ahmed Khan',
+      prescription: {
+        right: {
+          sph: '-2.00',
+          cyl: '-0.50',
+          axis: '90'
+        },
+        left: {
+          sph: '-2.25',
+          cyl: '-0.75',
+          axis: '85'
+        },
+        ipd: '64.0',
+        add: ''
+      },
+      notes: 'Brother of Hassan Raza',
+      products: [
+        {
+          category: 'frames',
+          description: 'Classic Frames',
+          qty: 1,
+          price: 3000.00,
+          total: 3000.00
+        },
+        {
+          category: 'lenses',
+          description: 'Standard Lenses',
+          qty: 1,
+          price: 2000.00,
+          total: 2000.00
+        }
+      ],
+      payment: {
+        amount: 5000.00,
+        paid: 5000.00,
+        remaining: 0.00
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    },
+    {
+      customerId: 'CUST-010',
+      phoneNumber: '03001112233',
+      customerName: 'Mohammad Shah',
+      familyMember: 'Mohammad Shah',
+      familyMemberRelation: 'Self',
+      doctorName: 'Dr. Zainab Malik',
+      prescription: {
+        right: {
+          sph: '-1.50',
+          cyl: '-0.25',
+          axis: '180'
+        },
+        left: {
+          sph: '-1.75',
+          cyl: '-0.25',
+          axis: '175'
+        },
+        ipd: '65.0',
+        add: '2.00'
+      },
+      notes: 'New customer',
+      products: [
+        {
+          category: 'frames',
+          description: 'Metal Frames',
+          qty: 1,
+          price: 3500.00,
+          total: 3500.00
+        },
+        {
+          category: 'lenses',
+          description: 'Progressive Lenses',
+          qty: 1,
+          price: 5500.00,
+          total: 5500.00
+        }
+      ],
+      payment: {
+        amount: 9000.00,
+        paid: 9000.00,
+        remaining: 0.00
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    },
+    {
+      customerId: 'CUST-011',
+      phoneNumber: '03001112233',
+      customerName: 'Mohammad Shah',
+      familyMember: 'Amina',
+      familyMemberRelation: 'Wife',
+      doctorName: 'Dr. Zainab Malik',
+      prescription: {
+        right: {
+          sph: '+1.25',
+          cyl: '-0.50',
+          axis: '90'
+        },
+        left: {
+          sph: '+1.50',
+          cyl: '-0.50',
+          axis: '85'
+        },
+        ipd: '61.0',
+        add: '1.50'
+      },
+      notes: 'Wife of Mohammad Shah',
+      products: [
+        {
+          category: 'frames',
+          description: 'Elegant Frames',
+          qty: 1,
+          price: 4000.00,
+          total: 4000.00
+        },
+        {
+          category: 'lenses',
+          description: 'Bifocal Lenses',
+          qty: 1,
+          price: 4000.00,
+          total: 4000.00
+        }
+      ],
+      payment: {
+        amount: 8000.00,
+        paid: 4000.00,
+        remaining: 4000.00
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    },
+    {
+      customerId: 'CUST-012',
+      phoneNumber: '03001112233',
+      customerName: 'Mohammad Shah',
+      familyMember: 'Yusuf',
+      familyMemberRelation: 'Son',
+      doctorName: 'Dr. Zainab Malik',
+      prescription: {
+        right: {
+          sph: '-2.50',
+          cyl: '-1.00',
+          axis: '180'
+        },
+        left: {
+          sph: '-2.75',
+          cyl: '-1.25',
+          axis: '175'
+        },
+        ipd: '57.0',
+        add: ''
+      },
+      notes: 'Son of Mohammad Shah',
+      products: [
+        {
+          category: 'frames',
+          description: 'Sports Frames',
+          qty: 1,
+          price: 2500.00,
+          total: 2500.00
+        },
+        {
+          category: 'lenses',
+          description: 'Impact Resistant Lenses',
+          qty: 1,
+          price: 3000.00,
+          total: 3000.00
+        }
+      ],
+      payment: {
+        amount: 5500.00,
+        paid: 5500.00,
+        remaining: 0.00
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    },
+    {
+      customerId: 'CUST-013',
+      phoneNumber: '03001112233',
+      customerName: 'Mohammad Shah',
+      familyMember: 'Maryam',
+      familyMemberRelation: 'Daughter',
+      doctorName: 'Dr. Zainab Malik',
+      prescription: {
+        right: {
+          sph: '',
+          cyl: '',
+          axis: ''
+        },
+        left: {
+          sph: '',
+          cyl: '',
+          axis: ''
+        },
+        ipd: '',
+        add: ''
+      },
+      notes: 'Daughter of Mohammad Shah, sunglasses only',
+      products: [
+        {
+          category: 'sunglasses',
+          description: 'Fashion Sunglasses',
+          qty: 1,
+          price: 1500.00,
+          total: 1500.00
+        }
+      ],
+      payment: {
+        amount: 1500.00,
+        paid: 1500.00,
+        remaining: 0.00
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
     }
   ];
 
   let createdCount = 0;
+  let updatedCount = 0;
   
   for (const customer of customers) {
     try {
@@ -496,17 +936,32 @@ async function seedCustomers() {
       const existing = await customersRef.where('customerId', '==', customer.customerId).limit(1).get();
       
       if (!existing.empty) {
-        console.log(`  ⚠ Customer "${customer.customerId}" already exists, skipping...`);
+        // Customer exists, update with doctor name if missing
+        const existingDoc = existing.docs[0];
+        const existingData = existingDoc.data();
+        const docId = existingDoc.id;
+        
+        // Check if doctorName is missing or empty
+        if (!existingData.doctorName || existingData.doctorName === '') {
+          await customersRef.doc(docId).update({
+            doctorName: customer.doctorName || ''
+          });
+          updatedCount++;
+          console.log(`  ✓ Updated customer "${customer.customerId}" with doctor name: ${customer.doctorName || 'N/A'}`);
+        } else {
+          console.log(`  ⚠ Customer "${customer.customerId}" already exists with doctor name, skipping...`);
+        }
       } else {
         await customersRef.add(customer);
         createdCount++;
         console.log(`  ✓ Created customer: ${customer.customerName} (${customer.customerId})`);
       }
     } catch (error) {
-      console.error(`  ✗ Error creating customer ${customer.customerName}:`, error.message);
+      console.error(`  ✗ Error processing customer ${customer.customerName}:`, error.message);
     }
   }
   
+  console.log(`\n  Summary: ${createdCount} created, ${updatedCount} updated`);
   return createdCount;
 }
 

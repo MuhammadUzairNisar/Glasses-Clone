@@ -13,6 +13,7 @@ const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [activeView, setActiveView] = useState('overview'); // 'overview', 'form', 'list', 'invoice', 'stock', 'category', or 'item'
+  const [savedCustomerId, setSavedCustomerId] = useState(null); // Store saved customer ID for invoice
 
   const handleLogout = () => {
     logout();
@@ -230,9 +231,15 @@ const Dashboard = () => {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-gray-50">
           {activeView === 'overview' && <DashboardOverview />}
-          {activeView === 'form' && <OpticsForm onSaveSuccess={() => setActiveView('list')} />}
+          {activeView === 'form' && <OpticsForm onSaveSuccess={(savedCustomer) => {
+            // Navigate to invoice view with the saved customer
+            if (savedCustomer && savedCustomer._id) {
+              setSavedCustomerId(savedCustomer._id);
+            }
+            setActiveView('invoice');
+          }} />}
           {activeView === 'list' && <CustomerList />}
-          {activeView === 'invoice' && <Invoice />}
+          {activeView === 'invoice' && <Invoice initialCustomerId={savedCustomerId} />}
           {activeView === 'stock' && <Stock />}
           {activeView === 'category' && <CategoryManagement />}
           {activeView === 'item' && <ItemManagement />}

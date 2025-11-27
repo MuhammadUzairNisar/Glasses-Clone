@@ -65,6 +65,19 @@ const CustomerDetail = ({ customer, onClose }) => {
                 <span>{customer.phoneNumber || 'N/A'}</span>
               </div>
               <div className="detail-item">
+                <label>Family Member</label>
+                <span>
+                  {customer.familyMember ? (
+                    <>
+                      {customer.familyMember}
+                      {customer.familyMemberRelation && (
+                        <span className="text-gray-500"> ({customer.familyMemberRelation})</span>
+                      )}
+                    </>
+                  ) : 'N/A'}
+                </span>
+              </div>
+              <div className="detail-item">
                 <label>Prescription</label>
                 <span className={customer.hasPrescription ? 'badge badge-yes' : 'badge badge-no'}>
                   {customer.hasPrescription ? 'Yes' : 'No'}

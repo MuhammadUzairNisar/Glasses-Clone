@@ -8,8 +8,9 @@ const OpticsForm = ({ onSaveSuccess }) => {
     customerId: '',
     phoneNumber: '',
     customerName: '',
-    hasPrescription: false,
-    hasCamera: false,
+    familyMember: '', // Family member name
+    familyMemberRelation: '', // Relation (Father, Mother, Son, Daughter, etc.)
+    doctorName: '', // Doctor name
     prescription: {
       right: { sph: '', cyl: '', axis: '' },
       left: { sph: '', cyl: '', axis: '' },
@@ -66,41 +67,37 @@ const OpticsForm = ({ onSaveSuccess }) => {
   };
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    if (type === 'checkbox') {
-      setFormData(prev => ({ ...prev, [name]: checked }));
-    } else {
-      // For phone number, only allow digits and limit to 11
-      if (name === 'phoneNumber') {
-        // Remove any non-digit characters
-        const digitsOnly = value.replace(/\D/g, '');
-        // Limit to 11 digits
-        const limitedValue = digitsOnly.slice(0, 11);
-        setFormData(prev => ({ ...prev, [name]: limitedValue }));
-        
-        // Clear previous timeout
-        if (searchTimeoutRef.current) {
-          clearTimeout(searchTimeoutRef.current);
-        }
-        
-        // Reset phone number found state
-        setIsPhoneNumberFound(false);
-        
-        // Debounce the search - wait 500ms after user stops typing
-        if (limitedValue.length >= 3) {
-          searchTimeoutRef.current = setTimeout(() => {
-            searchCustomerByPhone(limitedValue);
-          }, 500);
-        }
-      } else {
-        setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value } = e.target;
+    // For phone number, only allow digits and limit to 11
+    if (name === 'phoneNumber') {
+      // Remove any non-digit characters
+      const digitsOnly = value.replace(/\D/g, '');
+      // Limit to 11 digits
+      const limitedValue = digitsOnly.slice(0, 11);
+      setFormData(prev => ({ ...prev, [name]: limitedValue }));
+      
+      // Clear previous timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
       }
       
-      // If name is manually changed and phone number was found, clear the found state
-      if (name === 'customerName' && isPhoneNumberFound) {
-        // Allow user to override the auto-filled name
-        // Don't clear isPhoneNumberFound here, let it stay disabled
+      // Reset phone number found state
+      setIsPhoneNumberFound(false);
+      
+      // Debounce the search - wait 500ms after user stops typing
+      if (limitedValue.length >= 3) {
+        searchTimeoutRef.current = setTimeout(() => {
+          searchCustomerByPhone(limitedValue);
+        }, 500);
       }
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+    
+    // If name is manually changed and phone number was found, clear the found state
+    if (name === 'customerName' && isPhoneNumberFound) {
+      // Allow user to override the auto-filled name
+      // Don't clear isPhoneNumberFound here, let it stay disabled
     }
   };
 
@@ -200,8 +197,9 @@ const OpticsForm = ({ onSaveSuccess }) => {
       customerId: '',
       phoneNumber: '',
       customerName: '',
-      hasPrescription: false,
-      hasCamera: false,
+      familyMember: '',
+      familyMemberRelation: '',
+      doctorName: '',
       prescription: {
         right: { sph: '', cyl: '', axis: '' },
         left: { sph: '', cyl: '', axis: '' },
@@ -288,7 +286,7 @@ const OpticsForm = ({ onSaveSuccess }) => {
     return true;
   };
 
-  const handleSave = async () => {
+  const handleSaveAndPrint = async () => {
     // Clear any previous validation errors
     setValidationError('');
     
@@ -301,23 +299,23 @@ const OpticsForm = ({ onSaveSuccess }) => {
     setSaveMessage('');
 
     try {
-      await createCustomer(formData);
+      const savedCustomer = await createCustomer(formData);
       setSaveMessage('Customer record saved successfully!');
       
-      // Clear all form fields after successful save
+      // After saving, navigate to invoice and print
       setTimeout(() => {
+        // Callback to navigate to invoice with saved customer data
+        if (onSaveSuccess) {
+          onSaveSuccess(savedCustomer);
+        }
+        // Clear form after navigation
         clearForm();
         setSaveMessage('');
-        // Callback to refresh customer list or switch view
-        if (onSaveSuccess) {
-          onSaveSuccess();
-        }
-      }, 1500); // Clear after showing success message for 1.5 seconds
+      }, 1000); // Short delay to show success message
     } catch (error) {
       console.error('Save error:', error);
       setSaveMessage(error.message || 'Failed to save customer record');
       setTimeout(() => setSaveMessage(''), 5000);
-    } finally {
       setSaving(false);
     }
   };
@@ -434,25 +432,45 @@ const OpticsForm = ({ onSaveSuccess }) => {
                 )}
               </div>
             </div>
-            <div className="checkbox-group">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="hasPrescription"
-                  checked={formData.hasPrescription}
-                  onChange={handleInputChange}
-                />
-                <span>Prescription</span>
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="hasCamera"
-                  checked={formData.hasCamera}
-                  onChange={handleInputChange}
-                />
-                <span>Camera</span>
-              </label>
+            <div className="form-group">
+              <label>Family Member Name</label>
+              <input
+                type="text"
+                name="familyMember"
+                value={formData.familyMember}
+                onChange={handleInputChange}
+                placeholder="Enter family member name"
+              />
+            </div>
+            <div className="form-group">
+              <label>Family Member Relation</label>
+              <select
+                name="familyMemberRelation"
+                value={formData.familyMemberRelation}
+                onChange={handleInputChange}
+              >
+                <option value="">Select Relation</option>
+                <option value="Self">Self</option>
+                <option value="Father">Father</option>
+                <option value="Mother">Mother</option>
+                <option value="Son">Son</option>
+                <option value="Daughter">Daughter</option>
+                <option value="Brother">Brother</option>
+                <option value="Sister">Sister</option>
+                <option value="Husband">Husband</option>
+                <option value="Wife">Wife</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Doctor Name</label>
+              <input
+                type="text"
+                name="doctorName"
+                value={formData.doctorName}
+                onChange={handleInputChange}
+                placeholder="Enter doctor name"
+              />
             </div>
           </div>
         </div>
@@ -781,10 +799,10 @@ const OpticsForm = ({ onSaveSuccess }) => {
           <button 
             type="button" 
             className="action-btn save-btn" 
-            onClick={handleSave}
+            onClick={handleSaveAndPrint}
             disabled={saving}
           >
-            {saving ? '⏳ Saving...' : '💾 Save'}
+            {saving ? '⏳ Saving...' : '💾 Save and Print'}
           </button>
           <button type="button" className="action-btn clear-btn" onClick={handleClear}>
             🗑️ Clear

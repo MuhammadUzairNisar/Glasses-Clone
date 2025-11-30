@@ -46,7 +46,7 @@ const CustomerList = () => {
       return [];
     }
     const phone = phoneSearch.trim();
-    const matchingCustomers = customers.filter(customer => 
+    const matchingCustomers = customers.filter(customer =>
       customer.phoneNumber && customer.phoneNumber.includes(phone)
     );
     const uniquePhones = [...new Set(matchingCustomers.map(c => c.phoneNumber))];
@@ -58,7 +58,7 @@ const CustomerList = () => {
     if (!selectedPhoneNumber) {
       return [];
     }
-    const phoneCustomers = customers.filter(customer => 
+    const phoneCustomers = customers.filter(customer =>
       customer.phoneNumber === selectedPhoneNumber
     );
     const familyMembers = phoneCustomers
@@ -91,7 +91,7 @@ const CustomerList = () => {
 
     // Filter by selected phone number (primary filter)
     if (selectedPhoneNumber) {
-      filtered = filtered.filter(customer => 
+      filtered = filtered.filter(customer =>
         customer.phoneNumber === selectedPhoneNumber
       );
 
@@ -160,7 +160,7 @@ const CustomerList = () => {
 
   const formatDate = (dateValue) => {
     if (!dateValue) return 'N/A';
-    
+
     // Handle Firestore Timestamp objects
     let date;
     if (dateValue.toDate && typeof dateValue.toDate === 'function') {
@@ -175,12 +175,12 @@ const CustomerList = () => {
     } else {
       return 'N/A';
     }
-    
+
     // Check if date is valid
     if (isNaN(date.getTime())) {
       return 'N/A';
     }
-    
+
     return date.toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'short',
@@ -207,7 +207,7 @@ const CustomerList = () => {
   const handleUpdatePayment = (customer) => {
     setSelectedCustomer(customer);
     setPaymentUpdate({
-      paid: customer.payment?.paid || 0,
+      paid: customer.payment?.paid ? customer.payment.paid.toString() : '',
       remaining: customer.payment?.remaining || 0
     });
     setShowPaymentModal(true);
@@ -237,7 +237,7 @@ const CustomerList = () => {
           <div className="flex flex-wrap gap-2">
             {phoneNumbers.length > 0 && (
               <>
-                <button 
+                <button
                   className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                   onClick={collapseAll}
                   title="Collapse all groups"
@@ -245,7 +245,7 @@ const CustomerList = () => {
                   <span>📁</span>
                   <span>Collapse All</span>
                 </button>
-                <button 
+                <button
                   className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                   onClick={expandAll}
                   title="Expand all groups"
@@ -255,7 +255,7 @@ const CustomerList = () => {
                 </button>
               </>
             )}
-            <button 
+            <button
               className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               onClick={fetchCustomers}
               disabled={loading}
@@ -284,7 +284,7 @@ const CustomerList = () => {
               className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm sm:text-base"
             />
             {searchTerm && (
-              <button 
+              <button
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
                 onClick={() => setSearchTerm('')}
                 title="Clear search"
@@ -315,7 +315,7 @@ const CustomerList = () => {
               className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm sm:text-base"
             />
             {phoneSearch && (
-              <button 
+              <button
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
                 onClick={() => {
                   setPhoneSearch('');
@@ -390,11 +390,10 @@ const CustomerList = () => {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setFamilyMemberFilter('')}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                      !familyMemberFilter
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${!familyMemberFilter
                         ? 'bg-primary-500 text-white'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
+                      }`}
                   >
                     All ({customers.filter(c => c.phoneNumber === selectedPhoneNumber).length})
                   </button>
@@ -402,11 +401,10 @@ const CustomerList = () => {
                     <button
                       key={index}
                       onClick={() => setFamilyMemberFilter(member.name)}
-                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                        familyMemberFilter.toLowerCase() === member.name.toLowerCase()
+                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${familyMemberFilter.toLowerCase() === member.name.toLowerCase()
                           ? 'bg-primary-500 text-white'
                           : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                      }`}
+                        }`}
                     >
                       {member.fullDisplay}
                     </button>
@@ -474,8 +472,8 @@ const CustomerList = () => {
             <div className="p-12 text-center">
               <p className="text-gray-600 text-lg mb-4">No customer records found</p>
               {searchTerm && (
-                <button 
-                  onClick={() => setSearchTerm('')} 
+                <button
+                  onClick={() => setSearchTerm('')}
                   className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
                 >
                   Clear Filter
@@ -488,12 +486,12 @@ const CustomerList = () => {
                 const customersInGroup = groupedCustomers[phone];
                 const isExpanded = expandedGroups.has(phone);
                 const hasMultiple = customersInGroup.length > 1;
-                
+
                 return (
                   <div key={phone} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
                     {hasMultiple ? (
                       <>
-                        <div 
+                        <div
                           className="bg-gray-50 hover:bg-gray-100 border-b border-gray-200 px-4 sm:px-6 py-4 cursor-pointer transition-colors"
                           onClick={() => toggleGroup(phone)}
                         >
@@ -731,11 +729,10 @@ const CustomerList = () => {
                           )}
                           <button
                             onClick={() => setCurrentPage(page)}
-                            className={`px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
-                              currentPage === page
+                            className={`px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${currentPage === page
                                 ? 'bg-primary-500 text-white border-primary-500'
                                 : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
-                            }`}
+                              }`}
                           >
                             {page}
                           </button>
@@ -775,7 +772,7 @@ const CustomerList = () => {
                 ✕
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -809,11 +806,12 @@ const CustomerList = () => {
                   type="number"
                   value={paymentUpdate.paid}
                   onChange={(e) => {
-                    const paid = parseFloat(e.target.value) || 0;
+                    const value = e.target.value;
+                    const paid = parseFloat(value) || 0;
                     const total = parseFloat(selectedCustomer.payment?.amount || calculateTotal(selectedCustomer.products)) || 0;
                     const remaining = Math.max(0, total - paid);
                     setPaymentUpdate({
-                      paid: paid,
+                      paid: value,
                       remaining: remaining
                     });
                   }}
@@ -832,9 +830,8 @@ const CustomerList = () => {
                   type="text"
                   value={`Rs. ${formatCurrency(paymentUpdate.remaining)}`}
                   readOnly
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 ${
-                    paymentUpdate.remaining > 0 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'
-                  }`}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 ${paymentUpdate.remaining > 0 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'
+                    }`}
                 />
               </div>
 
@@ -879,7 +876,7 @@ const CustomerList = () => {
 
                       // Refresh customer data
                       await fetchCustomers();
-                      
+
                       // Update selected customer
                       const updated = await getCustomerById(selectedCustomer._id);
                       if (updated) {

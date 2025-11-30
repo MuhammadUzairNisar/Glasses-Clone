@@ -123,6 +123,7 @@
   display: flex;
   gap: 24px;
   align-items: center;
+  justify-content: flex-start;
 }
 
 .checkbox-label {
@@ -133,6 +134,11 @@
   font-size: 14px;
   font-weight: 500;
   color: #333;
+  user-select: none;
+}
+
+.checkbox-label:hover {
+  color: #667eea;
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -140,6 +146,11 @@
   height: 18px;
   cursor: pointer;
   accent-color: #667eea;
+  transition: transform 0.2s ease;
+}
+
+.checkbox-label input[type="checkbox"]:hover {
+  transform: scale(1.1);
 }
 
 /* Prescription Section */
@@ -351,6 +362,7 @@
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -506,4 +518,3 @@
     font-size: 24px;
   }
 }
-

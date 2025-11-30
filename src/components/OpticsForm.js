@@ -11,6 +11,8 @@ const OpticsForm = ({ onSaveSuccess }) => {
     familyMember: '', // Family member name
     familyMemberRelation: '', // Relation (Father, Mother, Son, Daughter, etc.)
     doctorName: '', // Doctor name
+    hasPrescription: false, // Prescription checkbox
+    isRevise: false, // Revise checkbox
     prescription: {
       right: { sph: '', cyl: '', axis: '' },
       left: { sph: '', cyl: '', axis: '' },
@@ -44,10 +46,10 @@ const OpticsForm = ({ onSaveSuccess }) => {
     setIsSearching(true);
     try {
       const customers = await searchCustomersByPhone(phoneNumber);
-      
+
       // Find exact phone number match
       const exactMatch = customers.find(c => c.phoneNumber === phoneNumber);
-      
+
       if (exactMatch) {
         setIsPhoneNumberFound(true);
         setFormData(prev => ({
@@ -67,7 +69,14 @@ const OpticsForm = ({ onSaveSuccess }) => {
   };
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+
+    // Handle checkboxes
+    if (type === 'checkbox') {
+      setFormData(prev => ({ ...prev, [name]: checked }));
+      return;
+    }
+
     // For phone number, only allow digits and limit to 11
     if (name === 'phoneNumber') {
       // Remove any non-digit characters
@@ -75,15 +84,15 @@ const OpticsForm = ({ onSaveSuccess }) => {
       // Limit to 11 digits
       const limitedValue = digitsOnly.slice(0, 11);
       setFormData(prev => ({ ...prev, [name]: limitedValue }));
-      
+
       // Clear previous timeout
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
-      
+
       // Reset phone number found state
       setIsPhoneNumberFound(false);
-      
+
       // Debounce the search - wait 500ms after user stops typing
       if (limitedValue.length >= 3) {
         searchTimeoutRef.current = setTimeout(() => {
@@ -93,7 +102,7 @@ const OpticsForm = ({ onSaveSuccess }) => {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
-    
+
     // If name is manually changed and phone number was found, clear the found state
     if (name === 'customerName' && isPhoneNumberFound) {
       // Allow user to override the auto-filled name
@@ -138,16 +147,16 @@ const OpticsForm = ({ onSaveSuccess }) => {
   const handleProductChange = (index, field, value) => {
     const updatedProducts = [...formData.products];
     updatedProducts[index] = { ...updatedProducts[index], [field]: value };
-    
+
     // Calculate total if qty or price changes
     if (field === 'qty' || field === 'price') {
       const qty = parseFloat(updatedProducts[index].qty) || 0;
       const price = parseFloat(updatedProducts[index].price) || 0;
       updatedProducts[index].total = (qty * price).toFixed(2);
     }
-    
+
     setFormData(prev => ({ ...prev, products: updatedProducts }));
-    
+
     // Recalculate payment amount
     calculatePaymentAmount(updatedProducts);
   };
@@ -156,7 +165,7 @@ const OpticsForm = ({ onSaveSuccess }) => {
     const total = products.reduce((sum, product) => {
       return sum + (parseFloat(product.total) || 0);
     }, 0);
-    
+
     setFormData(prev => ({
       ...prev,
       payment: {
@@ -200,6 +209,8 @@ const OpticsForm = ({ onSaveSuccess }) => {
       familyMember: '',
       familyMemberRelation: '',
       doctorName: '',
+      hasPrescription: false,
+      isRevise: false,
       prescription: {
         right: { sph: '', cyl: '', axis: '' },
         left: { sph: '', cyl: '', axis: '' },
@@ -245,7 +256,7 @@ const OpticsForm = ({ onSaveSuccess }) => {
     }
 
     // Check if at least one product has been entered
-    const hasProducts = formData.products.some(product => 
+    const hasProducts = formData.products.some(product =>
       product.category || product.description || product.qty || product.price
     );
 
@@ -289,7 +300,7 @@ const OpticsForm = ({ onSaveSuccess }) => {
   const handleSaveAndPrint = async () => {
     // Clear any previous validation errors
     setValidationError('');
-    
+
     // Validate form before saving
     if (!validateForm()) {
       return;
@@ -301,7 +312,7 @@ const OpticsForm = ({ onSaveSuccess }) => {
     try {
       const savedCustomer = await createCustomer(formData);
       setSaveMessage('Customer record saved successfully!');
-      
+
       // After saving, navigate to invoice and print
       setTimeout(() => {
         // Callback to navigate to invoice with saved customer data
@@ -334,6 +345,7 @@ const OpticsForm = ({ onSaveSuccess }) => {
   };
 
 
+
   // Generate numeric options for dropdowns
   const generateNumericOptions = (start, end, step = 0.25) => {
     const options = [];
@@ -343,9 +355,23 @@ const OpticsForm = ({ onSaveSuccess }) => {
     return options;
   };
 
-  const sphOptions = generateNumericOptions(-20, 20, 0.25);
+  // Generate SPH options: 0, +0.25 to +20, then -0.25 to -20
+  const generateSphOptions = () => {
+    const options = ['0.00']; // Start with 0
+    // Add positive values: +0.25 to +20
+    for (let i = 0.25; i <= 20; i += 0.25) {
+      options.push('+' + i.toFixed(2));
+    }
+    // Add negative values: -0.25 to -20
+    for (let i = -0.25; i >= -20; i -= 0.25) {
+      options.push(i.toFixed(2));
+    }
+    return options;
+  };
+
+  const sphOptions = generateSphOptions();
   const cylOptions = generateNumericOptions(-10, 10, 0.25);
-  const axisOptions = Array.from({ length: 180 }, (_, i) => i);
+  const axisOptions = Array.from({ length: 181 }, (_, i) => i); // 0 to 180
   const ipdOptions = generateNumericOptions(50, 80, 0.5);
   const addOptions = generateNumericOptions(0, 4, 0.25);
 
@@ -472,6 +498,29 @@ const OpticsForm = ({ onSaveSuccess }) => {
                 placeholder="Enter doctor name"
               />
             </div>
+            <div className="form-group">
+              <label>Options</label>
+              <div className="checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="hasPrescription"
+                    checked={formData.hasPrescription}
+                    onChange={handleInputChange}
+                  />
+                  <span>Prescription</span>
+                </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="isRevise"
+                    checked={formData.isRevise}
+                    onChange={handleInputChange}
+                  />
+                  <span>Revise</span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -484,15 +533,17 @@ const OpticsForm = ({ onSaveSuccess }) => {
               <div className="prescription-fields">
                 <div className="form-group">
                   <label>SPH</label>
-                  <select
+                  <input
+                    list="sph-options-right"
                     value={formData.prescription.right.sph}
                     onChange={(e) => handlePrescriptionChange('right', 'sph', e.target.value)}
-                  >
-                    <option value="">Select</option>
+                    placeholder="Select or type"
+                  />
+                  <datalist id="sph-options-right">
                     {sphOptions.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
+                      <option key={opt} value={opt} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
                 <div className="form-group">
                   <label>CYL</label>
@@ -525,15 +576,17 @@ const OpticsForm = ({ onSaveSuccess }) => {
               <div className="prescription-fields">
                 <div className="form-group">
                   <label>SPH</label>
-                  <select
+                  <input
+                    list="sph-options-left"
                     value={formData.prescription.left.sph}
                     onChange={(e) => handlePrescriptionChange('left', 'sph', e.target.value)}
-                  >
-                    <option value="">Select</option>
+                    placeholder="Select or type"
+                  />
+                  <datalist id="sph-options-left">
                     {sphOptions.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
+                      <option key={opt} value={opt} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
                 <div className="form-group">
                   <label>CYL</label>
@@ -754,13 +807,11 @@ const OpticsForm = ({ onSaveSuccess }) => {
 
         {/* Save Message - Top Right Corner */}
         {saveMessage && (
-          <div className={`fixed z-50 max-w-md p-4 rounded-lg shadow-lg animate-slide-in ${
-            validationError ? 'top-24 right-4' : 'top-4 right-4'
-          } ${
-            saveMessage.includes('successfully') 
-              ? 'bg-green-50 border-l-4 border-green-500' 
+          <div className={`fixed z-50 max-w-md p-4 rounded-lg shadow-lg animate-slide-in ${validationError ? 'top-24 right-4' : 'top-4 right-4'
+            } ${saveMessage.includes('successfully')
+              ? 'bg-green-50 border-l-4 border-green-500'
               : 'bg-red-50 border-l-4 border-red-500'
-          }`}>
+            }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 {saveMessage.includes('successfully') ? (
@@ -772,19 +823,17 @@ const OpticsForm = ({ onSaveSuccess }) => {
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                   </svg>
                 )}
-                <p className={`text-sm font-medium ${
-                  saveMessage.includes('successfully') ? 'text-green-800' : 'text-red-800'
-                }`}>
+                <p className={`text-sm font-medium ${saveMessage.includes('successfully') ? 'text-green-800' : 'text-red-800'
+                  }`}>
                   {saveMessage}
                 </p>
               </div>
               <button
                 onClick={() => setSaveMessage('')}
-                className={`ml-4 flex-shrink-0 ${
-                  saveMessage.includes('successfully') 
-                    ? 'text-green-500 hover:text-green-700' 
-                    : 'text-red-500 hover:text-red-700'
-                }`}
+                className={`ml-4 flex-shrink-0 ${saveMessage.includes('successfully')
+                  ? 'text-green-500 hover:text-green-700'
+                  : 'text-red-500 hover:text-red-700'
+                  }`}
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -796,9 +845,9 @@ const OpticsForm = ({ onSaveSuccess }) => {
 
         {/* Action Buttons */}
         <div className="form-actions">
-          <button 
-            type="button" 
-            className="action-btn save-btn" 
+          <button
+            type="button"
+            className="action-btn save-btn"
             onClick={handleSaveAndPrint}
             disabled={saving}
           >

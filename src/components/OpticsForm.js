@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { searchCustomersByPhone, createCustomer } from '../services/customers';
+import { getCategories } from '../services/categories';
 
 import './OpticsForm.css';
 
@@ -33,7 +34,22 @@ const OpticsForm = ({ onSaveSuccess }) => {
   const [isPhoneNumberFound, setIsPhoneNumberFound] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [validationError, setValidationError] = useState('');
+
+  const [categories, setCategories] = useState([]);
   const searchTimeoutRef = useRef(null);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const fetchedCategories = await getCategories();
+        setCategories(fetchedCategories);
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   // Search for customer by phone number
   const searchCustomerByPhone = async (phoneNumber) => {
@@ -152,7 +168,7 @@ const OpticsForm = ({ onSaveSuccess }) => {
     if (field === 'qty' || field === 'price') {
       const qty = parseFloat(updatedProducts[index].qty) || 0;
       const price = parseFloat(updatedProducts[index].price) || 0;
-      updatedProducts[index].total = (qty * price).toFixed(2);
+      updatedProducts[index].total = Math.round(qty * price).toString();
     }
 
     setFormData(prev => ({ ...prev, products: updatedProducts }));
@@ -170,8 +186,8 @@ const OpticsForm = ({ onSaveSuccess }) => {
       ...prev,
       payment: {
         ...prev.payment,
-        amount: total.toFixed(2),
-        remaining: (total - (parseFloat(prev.payment.paid) || 0)).toFixed(2)
+        amount: Math.round(total).toString(),
+        remaining: Math.round(total - (parseFloat(prev.payment.paid) || 0)).toString()
       }
     }));
   };
@@ -181,7 +197,7 @@ const OpticsForm = ({ onSaveSuccess }) => {
     if (field === 'paid') {
       const amount = parseFloat(formData.payment.amount) || 0;
       const paid = parseFloat(value) || 0;
-      updatedPayment.remaining = (amount - paid).toFixed(2);
+      updatedPayment.remaining = Math.round(amount - paid).toString();
     }
     setFormData(prev => ({ ...prev, payment: updatedPayment }));
   };
@@ -547,27 +563,31 @@ const OpticsForm = ({ onSaveSuccess }) => {
                 </div>
                 <div className="form-group">
                   <label>CYL</label>
-                  <select
+                  <input
+                    list="cyl-options-right"
                     value={formData.prescription.right.cyl}
                     onChange={(e) => handlePrescriptionChange('right', 'cyl', e.target.value)}
-                  >
-                    <option value="">Select</option>
+                    placeholder="Select or type"
+                  />
+                  <datalist id="cyl-options-right">
                     {cylOptions.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
+                      <option key={opt} value={opt} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
                 <div className="form-group">
                   <label>AXIS</label>
-                  <select
+                  <input
+                    list="axis-options-right"
                     value={formData.prescription.right.axis}
                     onChange={(e) => handlePrescriptionChange('right', 'axis', e.target.value)}
-                  >
-                    <option value="">Select</option>
+                    placeholder="Select or type"
+                  />
+                  <datalist id="axis-options-right">
                     {axisOptions.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
+                      <option key={opt} value={opt} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
               </div>
             </div>
@@ -590,27 +610,31 @@ const OpticsForm = ({ onSaveSuccess }) => {
                 </div>
                 <div className="form-group">
                   <label>CYL</label>
-                  <select
+                  <input
+                    list="cyl-options-left"
                     value={formData.prescription.left.cyl}
                     onChange={(e) => handlePrescriptionChange('left', 'cyl', e.target.value)}
-                  >
-                    <option value="">Select</option>
+                    placeholder="Select or type"
+                  />
+                  <datalist id="cyl-options-left">
                     {cylOptions.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
+                      <option key={opt} value={opt} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
                 <div className="form-group">
                   <label>AXIS</label>
-                  <select
+                  <input
+                    list="axis-options-left"
                     value={formData.prescription.left.axis}
                     onChange={(e) => handlePrescriptionChange('left', 'axis', e.target.value)}
-                  >
-                    <option value="">Select</option>
+                    placeholder="Select or type"
+                  />
+                  <datalist id="axis-options-left">
                     {axisOptions.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
+                      <option key={opt} value={opt} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
               </div>
             </div>
@@ -618,27 +642,31 @@ const OpticsForm = ({ onSaveSuccess }) => {
           <div className="prescription-extra">
             <div className="form-group">
               <label>IPD</label>
-              <select
+              <input
+                list="ipd-options"
                 value={formData.prescription.ipd}
                 onChange={(e) => handlePrescriptionChange('', 'ipd', e.target.value)}
-              >
-                <option value="">Select</option>
+                placeholder="Select or type"
+              />
+              <datalist id="ipd-options">
                 {ipdOptions.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
+                  <option key={opt} value={opt} />
                 ))}
-              </select>
+              </datalist>
             </div>
             <div className="form-group">
               <label>ADD</label>
-              <select
+              <input
+                list="add-options"
                 value={formData.prescription.add}
                 onChange={(e) => handlePrescriptionChange('', 'add', e.target.value)}
-              >
-                <option value="">Select</option>
+                placeholder="Select or type"
+              />
+              <datalist id="add-options">
                 {addOptions.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
+                  <option key={opt} value={opt} />
                 ))}
-              </select>
+              </datalist>
             </div>
           </div>
         </div>
@@ -684,11 +712,9 @@ const OpticsForm = ({ onSaveSuccess }) => {
                         onChange={(e) => handleProductChange(index, 'category', e.target.value)}
                       >
                         <option value="">Select Category</option>
-                        <option value="frames">Frames</option>
-                        <option value="lenses">Lenses</option>
-                        <option value="sunglasses">Sunglasses</option>
-                        <option value="contact-lenses">Contact Lenses</option>
-                        <option value="accessories">Accessories</option>
+                        {categories.map(cat => (
+                          <option key={cat._id} value={cat.name.toLowerCase()}>{cat.name}</option>
+                        ))}
                       </select>
                     </td>
                     <td>

@@ -191,8 +191,8 @@ const CustomerList = () => {
   };
 
   const formatCurrency = (amount) => {
-    if (!amount && amount !== 0) return '0.00';
-    return parseFloat(amount).toFixed(2);
+    if (!amount && amount !== 0) return '0';
+    return Math.round(parseFloat(amount)).toString();
   };
 
   const calculateTotal = (products) => {
@@ -391,8 +391,8 @@ const CustomerList = () => {
                   <button
                     onClick={() => setFamilyMemberFilter('')}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${!familyMemberFilter
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       }`}
                   >
                     All ({customers.filter(c => c.phoneNumber === selectedPhoneNumber).length})
@@ -402,8 +402,8 @@ const CustomerList = () => {
                       key={index}
                       onClick={() => setFamilyMemberFilter(member.name)}
                       className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${familyMemberFilter.toLowerCase() === member.name.toLowerCase()
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                         }`}
                     >
                       {member.fullDisplay}
@@ -730,8 +730,8 @@ const CustomerList = () => {
                           <button
                             onClick={() => setCurrentPage(page)}
                             className={`px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${currentPage === page
-                                ? 'bg-primary-500 text-white border-primary-500'
-                                : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                              ? 'bg-primary-500 text-white border-primary-500'
+                              : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
                               }`}
                           >
                             {page}

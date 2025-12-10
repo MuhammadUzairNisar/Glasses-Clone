@@ -9,7 +9,8 @@
     box-sizing: border-box;
   }
 
-  html, body {
+  html,
+  body {
     height: 100%;
   }
 
@@ -35,108 +36,257 @@
   body * {
     visibility: hidden;
   }
-  
-  .invoice-content,
-  .invoice-content * {
+
+  .print-container,
+  .print-container * {
     visibility: visible !important;
+  }
+
+  .print-container {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: white;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  .invoice-content {
+    position: relative !important;
+    width: 100% !important;
+    max-width: 76mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .invoice-content h2,
+  .invoice-content h3 {
+    font-size: 12px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .invoice-content p,
+  .invoice-content span,
+  .invoice-content td,
+  .invoice-content th {
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+  }
+
+  .invoice-content table {
+    width: 100% !important;
+    font-size: 10px !important;
+    border-collapse: collapse !important;
+  }
+
+  .invoice-content table th,
+  .invoice-content table td {
+    padding: 2px !important;
+    border: 1px solid #000 !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  @page {
+    margin: 2mm;
+    size: 80mm auto;
+    page-break-after: auto;
+  }
+  
+  /* Prevent orphan pages - aggressive rules */
+  .print-container {
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+  
+  /* HARD RULE: Trim everything after invoice content in print container */
+  .print-container .invoice-content:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  
+  .print-container > *:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  
+  /* Hide everything after invoice-content in print container */
+  .print-container .invoice-content ~ * {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Trim all space after print container content */
+  .print-container::after {
+    content: none !important;
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   
   .invoice-content {
-    position: relative !important;
-    left: auto !important;
-    top: auto !important;
-    width: 100% !important;
     page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
   }
   
-  .invoice-content h1 {
-    font-size: 20px !important;
-    margin-bottom: 8px !important;
+  /* HARD RULE: Trim everything after footer - Footer is the absolute end */
+  .invoice-footer {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: 0 !important;
   }
   
-  .invoice-content h2,
-  .invoice-content h3 {
-    font-size: 14px !important;
-    margin-bottom: 5px !important;
+  .invoice-footer p:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    line-height: 1.2 !important;
   }
   
-  .invoice-content p,
-  .invoice-content span {
-    font-size: 10px !important;
-    line-height: 1.3 !important;
+  /* Hide/Remove everything after footer */
+  .invoice-content > *:not(.invoice-footer) {
+    /* Keep all content before footer */
   }
   
-  .invoice-content table {
-    font-size: 9px !important;
+  /* Ensure footer is the absolute last element */
+  .invoice-content > div:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: 0 !important;
   }
   
-  .invoice-content table th,
-  .invoice-content table td {
-    padding: 4px 6px !important;
+  .invoice-content > div:last-child p:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    line-height: 1.2 !important;
   }
   
-  .print\\:hidden {
+  /* Remove all spacing after invoice content */
+  .invoice-content:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  
+  /* Ensure no space after footer text */
+  .invoice-content p:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  
+  /* HARD RULE: Hide everything after invoice-footer */
+  .invoice-footer ~ * {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Trim all space after footer in invoice-content */
+  .invoice-content::after {
+    content: none !important;
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Ensure invoice-content ends exactly at footer */
+  .invoice-content {
+    overflow: hidden !important;
+  }
+  
+  /* Hide any extra content that might cause second page */
+  .print-container > *:not(.invoice-content) {
     display: none !important;
   }
   
-  .print\\:shadow-none {
-    box-shadow: none !important;
+  /* Remove any trailing whitespace or content */
+  .print-container::after {
+    content: none !important;
+    display: none !important;
   }
   
-  .print\\:block {
-    display: block !important;
+  .invoice-content::after {
+    content: none !important;
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
-  
-  @page {
-    margin: 0;
-    size: A4;
-  }
-  
-  /* Business card background for invoices - Blue bands */
-  body::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 8mm;
-    background-color: #003366;
-    z-index: 9999;
-  }
-  
-  body::after {
-    content: '';
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 8mm;
-    background-color: #003366;
-    z-index: 9999;
-  }
-  
-  /* Business card footer information */
-  .invoice-content {
-    position: relative;
-    padding-top: 10mm;
-    padding-bottom: 20mm;
-  }
-  
-  /* Add footer text using a pseudo-element on the last invoice content */
-  .invoice-content:last-of-type::after {
-    content: 'HAJI NAWAB DIN & SONS OPTICAL | Prop: Adeel Feroz\A Phone: 0321-7940339, 0321-6643839, 041-8725875 | Main Susan Road, Faisalabad';
-    position: fixed;
-    bottom: 2mm;
-    left: 0;
-    width: 100%;
-    text-align: center;
-    font-size: 5pt !important;
-    color: #666;
-    white-space: pre-line;
-    line-height: 1.2;
-    z-index: 10000;
-    background-color: transparent;
-    height: auto;
-  }
-}
 
+  /* Remove blue bands */
+  body::before,
+  body::after {
+    display: none !important;
+  }
+  
+  /* Prevent body from creating extra pages */
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  html {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  
+  /* HARD RULE: Ensure print-container content is visible but trim after footer */
+  .print-container {
+    display: block !important;
+    visibility: visible !important;
+  }
+  
+  /* Trim all space after print-container */
+  body::after {
+    content: none !important;
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Footer adjustments - disabled to prevent extra page */
+  /* .invoice-content:last-of-type::after {
+    content: 'HAJI NAWAB DIN & SONS OPTICAL\A Prop: Adeel Feroz\A 0321-7940339, 0321-6643839\A 041-8725875';
+    position: static;
+    display: block;
+    text-align: center;
+    font-size: 9px !important;
+    color: #000;
+    white-space: pre-line;
+    margin-top: 10px;
+    padding-bottom: 10px;
+  } */
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getCustomers, getCustomerById, updateCustomer } from '../services/customers';
 import jsPDF from 'jspdf';
 
@@ -17,6 +17,8 @@ const Invoice = ({ initialCustomerId }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentUpdate, setPaymentUpdate] = useState({ paid: '', remaining: '' });
   const [updating, setUpdating] = useState(false);
+  const [printData, setPrintData] = useState(null); // Store print data separately
+  const printDataRef = useRef(null); // Ref for immediate access to print data
 
   useEffect(() => {
     fetchCustomers();
@@ -152,7 +154,12 @@ const Invoice = ({ initialCustomerId }) => {
   };
 
   const handleInvoiceSelect = (customerId) => {
-    setSelectedCustomer(selectedCustomers.find(c => c._id === customerId));
+    const customer = selectedCustomers.find(c => c._id === customerId);
+    setSelectedCustomer(customer);
+    // Clear selected invoices when selecting a single customer for viewing
+    if (selectedCustomers.length > 1) {
+      setSelectedInvoiceIds(new Set([customerId]));
+    }
   };
 
   const handleInvoiceCheckbox = (customerId, checked) => {
@@ -169,7 +176,7 @@ const Invoice = ({ initialCustomerId }) => {
     if (selectedInvoiceIds.size === selectedCustomers.length) {
       setSelectedInvoiceIds(new Set());
     } else {
-      setSelectedInvoiceIds(new Set(selectedCustomers.map(c => c._id)));
+      setSelectedInvoiceIds(new Set(selectedCustomers.map(c => c._id || c.id).filter(id => id)));
     }
   };
 
@@ -212,7 +219,7 @@ const Invoice = ({ initialCustomerId }) => {
   };
 
   const formatCurrency = (amount) => {
-    return `Rs. ${parseFloat(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `Rs. ${Math.round(parseFloat(amount || 0)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 
   const calculateTotal = (products) => {
@@ -225,18 +232,27 @@ const Invoice = ({ initialCustomerId }) => {
   };
 
   const handlePrint = (customer = null) => {
-    // Don't change state if customer is already selected
-    if (customer && customer._id !== selectedCustomer?._id) {
+    // If a specific customer is passed, use it for printing
+    if (customer) {
+      const printArray = [customer];
+      setPrintData(printArray); // Store print data in state
+      printDataRef.current = printArray; // Also store in ref for immediate access
+      // Also update selectedCustomer for UI consistency
       setSelectedCustomer(customer);
-      // Wait for state to update before printing
+      // Clear selected invoice IDs to ensure single invoice print mode
+      setSelectedInvoiceIds(new Set());
+      // Wait for state to update before printing - increased timeout
       setTimeout(() => {
         window.print();
-      }, 200);
-    } else {
-      // Print immediately if customer is already selected or no customer passed
+      }, 500);
+    } else if (selectedCustomer) {
+      // Print the currently selected customer
+      const printArray = [selectedCustomer];
+      setPrintData(printArray);
+      printDataRef.current = printArray;
       setTimeout(() => {
         window.print();
-      }, 100);
+      }, 300);
     }
   };
 
@@ -246,9 +262,34 @@ const Invoice = ({ initialCustomerId }) => {
       setTimeout(() => setError(''), 5000);
       return;
     }
+
+    // Set print data for multiple invoices - ensure we get all selected
+    const selectedInvoices = selectedCustomers.filter(c => {
+      if (!c) return false;
+      // Check both _id and id properties for compatibility
+      const customerId = c._id || c.id;
+      return customerId && selectedInvoiceIds.has(customerId);
+    });
+    
+    if (selectedInvoices.length === 0) {
+      setError('No invoices found matching the selected IDs. Please try selecting again.');
+      setTimeout(() => setError(''), 5000);
+      return;
+    }
+    
+    if (selectedInvoices.length !== selectedInvoiceIds.size) {
+      console.warn(`Warning: Expected ${selectedInvoiceIds.size} invoices but found ${selectedInvoices.length}`);
+    }
+
+    // Set print data for multiple invoices
+    setPrintData(selectedInvoices);
+    printDataRef.current = selectedInvoices;
+
     // Print all selected invoices - they will be rendered in the print view
     // The print view will show all selected invoices with page breaks
-    window.print();
+    setTimeout(() => {
+      window.print();
+    }, 500);
   };
 
   const handleSavePDF = (customer = null) => {
@@ -276,11 +317,6 @@ const Invoice = ({ initialCustomerId }) => {
     const customerData = JSON.parse(JSON.stringify(customerToSave));
 
     console.log('Saving PDF for customer:', customerData);
-    console.log('Customer products:', customerData.products);
-    console.log('Customer payment:', customerData.payment);
-    console.log('Products array length:', customerData.products?.length);
-    console.log('Customer ID:', customerData._id);
-    console.log('Customer Name:', customerData.customerName);
 
     // Validate that we have essential data
     if (!customerData.customerName && !customerData.products) {
@@ -291,298 +327,178 @@ const Invoice = ({ initialCustomerId }) => {
     }
 
     try {
-      const doc = new jsPDF();
+      // Initialize for 80mm width, dynamic height (start with long height, will crop if needed or just let it be long)
+      // Standard thermal paper is 80mm width. Height depends on content.
+      // We'll use a long page height to avoid page breaks for most receipts.
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [80, 297] // 80mm width, A4 height (can be longer if needed)
+      });
 
-      // Add business card background/watermark
-      // Blue bands at top and bottom (matching business card design)
-      doc.setFillColor(0, 51, 102); // Blue color matching business card
-      doc.rect(0, 0, 210, 12, 'F'); // Top band (increased height for header)
-      doc.rect(0, doc.internal.pageSize.height - 8, 210, 8, 'F'); // Bottom band
+      // Margins
+      const margin = 4;
+      const pageWidth = 80;
+      const contentWidth = pageWidth - (margin * 2);
+      const centerX = pageWidth / 2;
+      let yPos = 10;
 
-      // Prominent watermark in header area
-      doc.setTextColor(255, 255, 255); // White text on blue background
-      doc.setFontSize(24); // Large, prominent font size
+      // Header
+      doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('HAJI NAWAB DIN & SONS OPTICAL', 105, 8, { align: 'center' });
-
-      // Proprietor name in header
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Prop: Adeel Feroz', 105, 11, { align: 'center' });
-
-      // Reset text color for rest of document
-      doc.setTextColor(0, 0, 0);
-
-      // Business card information will be added at the end after we know the final Y position
-
-      // Header - Invoice title below the blue band
-      doc.setFontSize(18); // text-2xl equivalent
-      doc.setFont('helvetica', 'bold');
-      doc.text('INVOICE', 105, 20, { align: 'center' });
-
-      // Draw border-b-2 border-gray-400 under header
-      doc.setDrawColor(150, 150, 150);
-      doc.setLineWidth(0.5);
-      doc.line(20, 25, 190, 25);
-
-      // Invoice Details - Exact match to print template
-      // grid grid-cols-2 gap-4 mb-6
-      let yPos = 35; // Adjusted for new header height
-
-      // Left side - Invoice Details (no background box, just text)
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8); // text-xs
-      doc.text('Invoice Details', 20, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8); // text-xs
-      doc.text('Invoice No:', 20, yPos + 4);
-      doc.setFont('helvetica', 'bold'); // font-semibold
-      const invoiceNo = String(customerData.customerId || (customerData._id ? customerData._id.slice(-8).toUpperCase() : 'N/A'));
-      console.log('Invoice No:', invoiceNo);
-      doc.text(invoiceNo, 50, yPos + 4);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Date & Time:', 20, yPos + 8);
-      doc.setFont('helvetica', 'bold'); // font-semibold
-      const dateTimeStr = String(formatDateTime(customerData.createdAt));
-      console.log('Date & Time:', dateTimeStr);
-      doc.text(dateTimeStr, 50, yPos + 8);
-      doc.setFont('helvetica', 'normal');
-
-      // Right side - Bill To (no background box, just text)
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8); // text-xs
-      doc.text('Bill To', 120, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8); // text-xs
-      doc.setFont('helvetica', 'bold'); // font-semibold
-      const customerNameStr = String(customerData.customerName || 'N/A');
-      console.log('Customer Name:', customerNameStr);
-      doc.text(customerNameStr, 120, yPos + 4);
-      doc.setFont('helvetica', 'normal');
-      if (customerData.familyMember) {
-        let familyMemberStr = `Family Member: ${String(customerData.familyMember)}`;
-        if (customerData.familyMemberRelation) {
-          familyMemberStr += ` (${String(customerData.familyMemberRelation)})`;
-        }
-        doc.text(familyMemberStr, 120, yPos + 8);
-        const phoneStr = `Phone: ${String(customerData.phoneNumber || 'N/A')}`;
-        console.log('Phone:', phoneStr);
-        doc.text(phoneStr, 120, yPos + 12);
-        if (customerData.doctorName) {
-          const doctorStr = `Doctor: ${String(customerData.doctorName)}`;
-          doc.text(doctorStr, 120, yPos + 16);
-          yPos += 4; // Extra space for doctor line
-        }
-        yPos += 4; // Extra space for family member line
-      } else {
-        const phoneStr = `Phone: ${String(customerData.phoneNumber || 'N/A')}`;
-        console.log('Phone:', phoneStr);
-        doc.text(phoneStr, 120, yPos + 8);
-        if (customerData.doctorName) {
-          const doctorStr = `Doctor: ${String(customerData.doctorName)}`;
-          doc.text(doctorStr, 120, yPos + 12);
-          yPos += 4; // Extra space for doctor line
-        }
-      }
-
-      yPos += 20; // mb-6 equivalent
-
-      // Products Table - Exact match to print template
-      // No "Products" label, just the table
-      // Table header - bg-gray-800 text-white
-      doc.setFontSize(8); // text-xs
-      doc.setFont('helvetica', 'bold');
-      // Draw header background (gray-800)
-      doc.setFillColor(50, 50, 50);
-      doc.rect(20, yPos - 2, 170, 4, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.text('Category', 22, yPos);
-      doc.text('Description', 52, yPos);
-      doc.text('Qty', 102, yPos);
-      doc.text('Price', 122, yPos);
-      doc.text('Total', 162, yPos);
-      doc.setTextColor(0, 0, 0);
+      doc.text('HAJI NAWAB OPTICALS', centerX, yPos, { align: 'center' });
       yPos += 5;
 
-      // Table rows - border border-gray-400
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8); // text-xs
-      if (customerData.products && customerData.products.length > 0) {
-        console.log('Adding products to PDF, count:', customerData.products.length);
-        customerData.products.forEach((product, idx) => {
-          if (yPos > 240) {
-            return;
-          }
-          console.log(`Product ${idx}:`, product);
-          // Draw borders for each cell
-          doc.setDrawColor(150, 150, 150); // border-gray-400
-          doc.setLineWidth(0.1);
-          // Top border
-          doc.line(20, yPos - 2, 190, yPos - 2);
-          // Bottom border
-          doc.line(20, yPos + 1, 190, yPos + 1);
-          // Vertical borders
-          doc.line(50, yPos - 2, 50, yPos + 1);
-          doc.line(100, yPos - 2, 100, yPos + 1);
-          doc.line(120, yPos - 2, 120, yPos + 1);
-          doc.line(160, yPos - 2, 160, yPos + 1);
+      doc.text('Prop: Adeel Feroz', centerX, yPos, { align: 'center' });
+      yPos += 4;
+      doc.text('0321-7940339, 0321-6643839', centerX, yPos, { align: 'center' });
+      yPos += 4;
+      doc.text('041-8725875', centerX, yPos, { align: 'center' });
+      yPos += 6;
 
-          const category = String(product.category || '-');
-          const description = String(product.description || '-').substring(0, 20);
-          const qty = String(product.qty || 0);
-          const price = formatCurrency(product.price || 0);
-          const total = formatCurrency(product.total || 0);
+      // Invoice Title
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INVOICE', centerX, yPos, { align: 'center' });
+      yPos += 2;
 
-          console.log(`Adding product row ${idx}:`, { category, description, qty, price, total });
+      // Divider
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.2);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 5;
 
-          doc.text(category, 22, yPos);
-          doc.text(description, 52, yPos);
-          doc.text(qty, 102, yPos);
-          doc.text(price, 122, yPos);
-          doc.setFont('helvetica', 'bold'); // font-semibold
-          doc.text(total, 162, yPos);
-          doc.setFont('helvetica', 'normal');
-          yPos += 4;
-        });
-      } else {
-        console.log('No products found, showing message');
-        // Show "No products found" message
-        doc.setDrawColor(150, 150, 150);
-        doc.setLineWidth(0.1);
-        doc.line(20, yPos - 2, 190, yPos - 2);
-        doc.line(20, yPos + 1, 190, yPos + 1);
-        doc.text('No products found', 22, yPos);
+      // Invoice Details
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+
+      const invoiceNo = String(customerData.customerId || (customerData._id ? customerData._id.slice(-8).toUpperCase() : 'N/A'));
+      doc.text(`Inv No: ${invoiceNo}`, margin, yPos);
+      yPos += 4;
+
+      const dateStr = formatDateTime(customerData.createdAt);
+      doc.text(`Date: ${dateStr}`, margin, yPos);
+      yPos += 4;
+
+      doc.text(`Customer: ${customerData.customerName || 'N/A'}`, margin, yPos);
+      yPos += 4;
+
+      if (customerData.phoneNumber) {
+        doc.text(`Phone: ${customerData.phoneNumber}`, margin, yPos);
         yPos += 4;
       }
 
-      const finalY = yPos + 5; // mb-4 equivalent
+      if (customerData.doctorName) {
+        doc.text(`Doctor: ${customerData.doctorName}`, margin, yPos);
+        yPos += 4;
+      }
 
-      // Payment Summary - Exact match to print template
-      // grid grid-cols-2 gap-4 mb-4
-      // Left side - Prescription Details
-      let presY = finalY;
+      yPos += 2;
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 5;
+
+      // Products Table Header
+      doc.setFont('helvetica', 'bold');
+      doc.text('Item', margin, yPos);
+      doc.text('Qty', 45, yPos, { align: 'right' });
+      doc.text('Price', 60, yPos, { align: 'right' });
+      doc.text('Total', contentWidth + margin, yPos, { align: 'right' });
+      yPos += 2;
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 4;
+
+      // Products
+      doc.setFont('helvetica', 'normal');
+      if (customerData.products && customerData.products.length > 0) {
+        customerData.products.forEach((product) => {
+          const category = String(product.category || '-');
+          const description = String(product.description || '-');
+          const itemText = `${category} - ${description}`;
+
+          // Split text to fit width
+          const splitText = doc.splitTextToSize(itemText, 35);
+          doc.text(splitText, margin, yPos);
+
+          const qty = String(product.qty || 0);
+          const price = String(Math.round(parseFloat(product.price || 0)));
+          const total = String(Math.round(parseFloat(product.total || 0)));
+
+          doc.text(qty, 45, yPos, { align: 'right' });
+          doc.text(price, 60, yPos, { align: 'right' });
+          doc.text(total, contentWidth + margin, yPos, { align: 'right' });
+
+          yPos += (splitText.length * 4) + 2;
+        });
+      }
+
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 5;
+
+      // Totals
+      const totalAmount = Math.round(parseFloat(customerData.payment?.amount || calculateTotal(customerData.products)));
+      const paidAmount = Math.round(parseFloat(customerData.payment?.paid || 0));
+      const remainingAmount = Math.round(parseFloat(customerData.payment?.remaining || 0));
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Total:', 40, yPos, { align: 'right' });
+      doc.text(String(totalAmount), contentWidth + margin, yPos, { align: 'right' });
+      yPos += 5;
+
+      doc.text('Paid:', 40, yPos, { align: 'right' });
+      doc.text(String(paidAmount), contentWidth + margin, yPos, { align: 'right' });
+      yPos += 5;
+
+      doc.text('Remaining:', 40, yPos, { align: 'right' });
+      doc.text(String(remainingAmount), contentWidth + margin, yPos, { align: 'right' });
+      yPos += 8;
+
+      // Prescription (Compact)
       if (customerData.hasPrescription) {
+        doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8); // text-xs
-        doc.text('Prescription Details', 20, presY);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8); // text-xs
+        doc.text('Prescription:', margin, yPos);
+        yPos += 4;
 
-        presY += 4;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+
         if (customerData.prescription?.right) {
-          doc.text(`Right Eye - SPH: ${customerData.prescription.right.sph || 'N/A'}, CYL: ${customerData.prescription.right.cyl || 'N/A'}, AXIS: ${customerData.prescription.right.axis || 'N/A'}`, 20, presY);
-          presY += 3;
+          const r = customerData.prescription.right;
+          doc.text(`R: SPH ${r.sph} CYL ${r.cyl} AXIS ${r.axis}`, margin, yPos);
+          yPos += 3;
         }
         if (customerData.prescription?.left) {
-          doc.text(`Left Eye - SPH: ${customerData.prescription.left.sph || 'N/A'}, CYL: ${customerData.prescription.left.cyl || 'N/A'}, AXIS: ${customerData.prescription.left.axis || 'N/A'}`, 20, presY);
-          presY += 3;
+          const l = customerData.prescription.left;
+          doc.text(`L: SPH ${l.sph} CYL ${l.cyl} AXIS ${l.axis}`, margin, yPos);
+          yPos += 3;
         }
-        if (customerData.prescription?.ipd) {
-          doc.text(`IPD: ${customerData.prescription.ipd}`, 20, presY);
-          presY += 3;
+        if (customerData.prescription?.ipd || customerData.prescription?.add) {
+          doc.text(`IPD: ${customerData.prescription.ipd || '-'}  ADD: ${customerData.prescription.add || '-'}`, margin, yPos);
+          yPos += 5;
         }
-        if (customerData.prescription?.add) {
-          doc.text(`ADD: ${customerData.prescription.add}`, 20, presY);
-          presY += 3;
-        }
+        yPos += 2;
       }
 
-      // Notes
-      if (customerData.notes) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8); // text-xs
-        doc.text('Notes', 20, presY);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8); // text-xs
-        doc.text(customerData.notes, 20, presY + 4, { maxWidth: 90 });
-      }
-
-      // Right side - Payment Summary (bg-gray-100 p-3 rounded border border-gray-300)
-      let paymentY = finalY;
-      // Draw background box (gray-100)
-      doc.setFillColor(240, 240, 240); // bg-gray-100
-      doc.rect(120, paymentY - 2, 70, 18, 'F');
-      doc.setDrawColor(200, 200, 200); // border-gray-300
-      doc.rect(120, paymentY - 2, 70, 18, 'S');
-
+      // Footer
+      yPos += 5;
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8); // text-xs
-      doc.text('Payment Summary', 125, paymentY);
+      doc.text('Thank you for your business!', centerX, yPos, { align: 'center' });
+      yPos += 5;
 
+      doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8); // text-xs
-      doc.text('Total Amount:', 125, paymentY + 4);
-      doc.setFont('helvetica', 'bold');
-      const totalAmount = formatCurrency(customerData.payment?.amount || calculateTotal(customerData.products));
-      console.log('Total Amount:', totalAmount);
-      doc.text(totalAmount, 185, paymentY + 4, { align: 'right' });
+      doc.text('No return, No exchange', centerX, yPos, { align: 'center' });
 
-      doc.setFont('helvetica', 'normal');
-      doc.text('Paid:', 125, paymentY + 8);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 100, 0); // text-green-700
-      const paidAmount = formatCurrency(customerData.payment?.paid || 0);
-      console.log('Paid:', paidAmount);
-      doc.text(paidAmount, 185, paymentY + 8, { align: 'right' });
-      doc.setTextColor(0, 0, 0);
-
-      // Draw divider line (border-t-2 border-gray-400)
-      doc.setDrawColor(150, 150, 150); // border-gray-400
-      doc.setLineWidth(0.2);
-      doc.line(125, paymentY + 11, 185, paymentY + 11);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.text('Remaining:', 125, paymentY + 14);
-      doc.setTextColor(200, 0, 0); // text-red-700
-      const remainingAmount = formatCurrency(customerData.payment?.remaining || 0);
-      console.log('Remaining:', remainingAmount);
-      doc.text(remainingAmount, 185, paymentY + 14, { align: 'right' });
-      doc.setTextColor(0, 0, 0);
-
-      // Footer - Exact match to print template
-      // border-t-2 border-gray-400 pt-2 mt-4
-      // Calculate final position and ensure it fits on current page
-      const pageHeight = doc.internal.pageSize.height;
-      const maxFooterY = pageHeight - 25; // Leave more space for footer and bottom band to prevent page break
-      const footerY = Math.min(paymentY + 25, maxFooterY); // Ensure footer is within page bounds
-
-      // Only add footer if it fits on current page
-      if (footerY < pageHeight - 20) {
-        // Ensure we're on page 1
-        doc.setPage(1);
-        doc.setDrawColor(150, 150, 150); // border-gray-400
-        doc.setLineWidth(0.2);
-        doc.line(20, footerY, 190, footerY);
-        doc.setFontSize(8); // text-xs
-        doc.setFont('helvetica', 'bold'); // font-semibold
-        doc.text('Thank you for your business!', 105, footerY + 4, { align: 'center' });
-      }
-
-      // Business card information in the blue footer band (white text on blue)
-      // Ensure we're on page 1 and content fits before adding footer text
-      doc.setPage(1);
-      // Only add if footer was added (meaning content fits on page)
-      if (footerY < pageHeight - 20) {
-        const bottomBandTop = pageHeight - 8;
-        doc.setFontSize(6);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(255, 255, 255); // White text on blue background
-        // Position text safely within the blue band (8mm high)
-        doc.text('HAJI NAWAB DIN & SONS OPTICAL | Prop: Adeel Feroz', 105, bottomBandTop + 1.5, { align: 'center' });
-        doc.text('Phone: 0321-7940339, 0321-6643839, 041-8725875 | Main Susan Road, Faisalabad', 105, bottomBandTop + 4.5, { align: 'center' });
-        doc.setTextColor(0, 0, 0); // Reset to black
-      }
-
-      // Save PDF with random number
+      // Save PDF
       const randomNumber = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
-      const dateObj = parseDate(customerData.createdAt);
-      const dateStr = dateObj && !isNaN(dateObj.getTime()) ? dateObj.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const dateStrIso = new Date().toISOString().split('T')[0];
       const customerName = (customerData.customerName || 'Customer').replace(/[^a-zA-Z0-9]/g, '_');
-      const fileName = `Invoice_${customerName}_${dateStr}_${randomNumber}.pdf`;
-      console.log('Saving PDF as:', fileName);
+      const fileName = `Invoice_${customerName}_${dateStrIso}_${randomNumber}.pdf`;
       doc.save(fileName);
-      console.log('PDF saved successfully');
+
     } catch (error) {
       console.error('Error generating PDF:', error);
       setError('Failed to generate PDF. Please try again.');
@@ -600,258 +516,181 @@ const Invoice = ({ initialCustomerId }) => {
     const selectedInvoices = selectedCustomers.filter(c => selectedInvoiceIds.has(c._id));
 
     // Create a single PDF with all selected invoices
-    const doc = new jsPDF();
+    // Initialize for 80mm width
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [80, 297]
+    });
+
     let isFirstPage = true;
 
     selectedInvoices.forEach((customer, index) => {
       if (!isFirstPage) {
-        doc.addPage();
+        doc.addPage([80, 297]);
       }
       isFirstPage = false;
 
-      // Add business card background/watermark for each page
-      // Blue bands at top and bottom (matching business card design)
-      doc.setFillColor(0, 51, 102); // Blue color matching business card
-      doc.rect(0, 0, 210, 12, 'F'); // Top band (increased height for header)
-      doc.rect(0, doc.internal.pageSize.height - 8, 210, 8, 'F'); // Bottom band
+      // Margins
+      const margin = 4;
+      const pageWidth = 80;
+      const contentWidth = pageWidth - (margin * 2);
+      const centerX = pageWidth / 2;
+      let yPos = 10;
 
-      // Prominent watermark in header area
-      doc.setTextColor(255, 255, 255); // White text on blue background
-      doc.setFontSize(24); // Large, prominent font size
+      // Header
+      doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('HAJI NAWAB DIN & SONS OPTICAL', 105, 8, { align: 'center' });
-
-      // Proprietor name in header
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Prop: Adeel Feroz', 105, 11, { align: 'center' });
-
-      // Reset text color for rest of document
-      doc.setTextColor(0, 0, 0);
-
-      // Header - Invoice title below the blue band
-      doc.setFontSize(18); // text-2xl equivalent
-      doc.setFont('helvetica', 'bold');
-      doc.text('INVOICE', 105, 20, { align: 'center' });
-
-      // Draw border-b-2 border-gray-400 under header
-      doc.setDrawColor(150, 150, 150);
-      doc.setLineWidth(0.5);
-      doc.line(20, 25, 190, 25);
-
-      // Invoice Details - Exact match to print template (lines 863-875)
-      // grid grid-cols-2 gap-4 mb-6
-      let yPos = 35; // Adjusted for new header height
-
-      // Left side - Invoice Details (no background box, just text)
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8); // text-xs
-      doc.text('Invoice Details', 20, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8); // text-xs
-      doc.text('Invoice No:', 20, yPos + 4);
-      doc.setFont('helvetica', 'bold'); // font-semibold
-      doc.text(customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A'), 50, yPos + 4);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Date & Time:', 20, yPos + 8);
-      doc.setFont('helvetica', 'bold'); // font-semibold
-      doc.text(formatDateTime(customer.createdAt), 50, yPos + 8);
-      doc.setFont('helvetica', 'normal');
-
-      // Right side - Bill To (no background box, just text)
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8); // text-xs
-      doc.text('Bill To', 120, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8); // text-xs
-      doc.setFont('helvetica', 'bold'); // font-semibold
-      doc.text(customer.customerName || 'N/A', 120, yPos + 4);
-      doc.setFont('helvetica', 'normal');
-      if (customer.familyMember) {
-        let familyMemberStr = `Family Member: ${String(customer.familyMember)}`;
-        if (customer.familyMemberRelation) {
-          familyMemberStr += ` (${String(customer.familyMemberRelation)})`;
-        }
-        doc.text(familyMemberStr, 120, yPos + 8);
-        doc.text(`Phone: ${customer.phoneNumber || 'N/A'}`, 120, yPos + 12);
-        if (customer.doctorName) {
-          doc.text(`Doctor: ${customer.doctorName}`, 120, yPos + 16);
-          yPos += 4; // Extra space for doctor line
-        }
-        yPos += 4; // Extra space for family member line
-      } else {
-        doc.text(`Phone: ${customer.phoneNumber || 'N/A'}`, 120, yPos + 8);
-        if (customer.doctorName) {
-          doc.text(`Doctor: ${customer.doctorName}`, 120, yPos + 12);
-          yPos += 4; // Extra space for doctor line
-        }
-      }
-
-      yPos += 20; // mb-6 equivalent
-
-      // Products Table - Exact match to print template (lines 877-909)
-      // No "Products" label, just the table
-      // Table header - bg-gray-800 text-white
-      doc.setFontSize(8); // text-xs
-      doc.setFont('helvetica', 'bold');
-      // Draw header background (gray-800)
-      doc.setFillColor(50, 50, 50);
-      doc.rect(20, yPos - 2, 170, 4, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.text('Category', 22, yPos);
-      doc.text('Description', 52, yPos);
-      doc.text('Qty', 102, yPos);
-      doc.text('Price', 122, yPos);
-      doc.text('Total', 162, yPos);
-      doc.setTextColor(0, 0, 0);
+      doc.text('HAJI NAWAB OPTICALS', centerX, yPos, { align: 'center' });
       yPos += 5;
 
-      // Table rows - border border-gray-400
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8); // text-xs
+      doc.text('Prop: Adeel Feroz', centerX, yPos, { align: 'center' });
+      yPos += 4;
+      doc.text('0321-7940339, 0321-6643839', centerX, yPos, { align: 'center' });
+      yPos += 4;
+      doc.text('041-8725875', centerX, yPos, { align: 'center' });
+      yPos += 6;
+
+      // Invoice Title
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INVOICE', centerX, yPos, { align: 'center' });
+      yPos += 2;
+
+      // Divider
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.2);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 5;
+
+      // Invoice Details
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+
+      const invoiceNo = String(customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A'));
+      doc.text(`Inv No: ${invoiceNo}`, margin, yPos);
+      yPos += 4;
+
+      const dateStr = formatDateTime(customer.createdAt);
+      doc.text(`Date: ${dateStr}`, margin, yPos);
+      yPos += 4;
+
+      doc.text(`Customer: ${customer.customerName || 'N/A'}`, margin, yPos);
+      yPos += 4;
+
+      if (customer.phoneNumber) {
+        doc.text(`Phone: ${customer.phoneNumber}`, margin, yPos);
+        yPos += 4;
+      }
+
+      if (customer.doctorName) {
+        doc.text(`Doctor: ${customer.doctorName}`, margin, yPos);
+        yPos += 4;
+      }
+
+      yPos += 2;
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 5;
+
+      // Products Table Header
+      doc.setFont('helvetica', 'bold');
+      doc.text('Item', margin, yPos);
+      doc.text('Qty', 45, yPos, { align: 'right' });
+      doc.text('Price', 60, yPos, { align: 'right' });
+      doc.text('Total', contentWidth + margin, yPos, { align: 'right' });
+      yPos += 2;
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 4;
+
+      // Products
+      doc.setFont('helvetica', 'normal');
       if (customer.products && customer.products.length > 0) {
         customer.products.forEach((product) => {
-          if (yPos > 240) {
-            return;
-          }
-          // Draw borders for each cell
-          doc.setDrawColor(150, 150, 150); // border-gray-400
-          doc.setLineWidth(0.1);
-          // Top border
-          doc.line(20, yPos - 2, 190, yPos - 2);
-          // Bottom border
-          doc.line(20, yPos + 1, 190, yPos + 1);
-          // Vertical borders
-          doc.line(50, yPos - 2, 50, yPos + 1);
-          doc.line(100, yPos - 2, 100, yPos + 1);
-          doc.line(120, yPos - 2, 120, yPos + 1);
-          doc.line(160, yPos - 2, 160, yPos + 1);
+          const category = String(product.category || '-');
+          const description = String(product.description || '-');
+          const itemText = `${category} - ${description}`;
 
-          doc.text(product.category || '-', 22, yPos);
-          doc.text((product.description || '-').substring(0, 20), 52, yPos);
-          doc.text(String(product.qty || 0), 102, yPos);
-          doc.text(formatCurrency(product.price), 122, yPos);
-          doc.setFont('helvetica', 'bold'); // font-semibold
-          doc.text(formatCurrency(product.total), 162, yPos);
-          doc.setFont('helvetica', 'normal');
-          yPos += 4;
+          // Split text to fit width
+          const splitText = doc.splitTextToSize(itemText, 35);
+          doc.text(splitText, margin, yPos);
+
+          const qty = String(product.qty || 0);
+          const price = String(Math.round(parseFloat(product.price || 0)));
+          const total = String(Math.round(parseFloat(product.total || 0)));
+
+          doc.text(qty, 45, yPos, { align: 'right' });
+          doc.text(price, 60, yPos, { align: 'right' });
+          doc.text(total, contentWidth + margin, yPos, { align: 'right' });
+
+          yPos += (splitText.length * 4) + 2;
         });
       }
 
-      const finalY = yPos + 5; // mb-4 equivalent
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 5;
 
-      // Payment Summary - Exact match to print template (lines 911-963)
-      // grid grid-cols-2 gap-4 mb-4
-      // Left side - Prescription Details
-      let presY = finalY;
+      // Totals
+      const totalAmount = Math.round(parseFloat(customer.payment?.amount || calculateTotal(customer.products)));
+      const paidAmount = Math.round(parseFloat(customer.payment?.paid || 0));
+      const remainingAmount = Math.round(parseFloat(customer.payment?.remaining || 0));
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Total:', 40, yPos, { align: 'right' });
+      doc.text(String(totalAmount), contentWidth + margin, yPos, { align: 'right' });
+      yPos += 5;
+
+      doc.text('Paid:', 40, yPos, { align: 'right' });
+      doc.text(String(paidAmount), contentWidth + margin, yPos, { align: 'right' });
+      yPos += 5;
+
+      doc.text('Remaining:', 40, yPos, { align: 'right' });
+      doc.text(String(remainingAmount), contentWidth + margin, yPos, { align: 'right' });
+      yPos += 8;
+
+      // Prescription (Compact)
       if (customer.hasPrescription) {
+        doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8); // text-xs
-        doc.text('Prescription Details', 20, presY);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8); // text-xs
+        doc.text('Prescription:', margin, yPos);
+        yPos += 4;
 
-        presY += 4;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+
         if (customer.prescription?.right) {
-          doc.text(`Right Eye - SPH: ${customer.prescription.right.sph || 'N/A'}, CYL: ${customer.prescription.right.cyl || 'N/A'}, AXIS: ${customer.prescription.right.axis || 'N/A'}`, 20, presY);
-          presY += 3;
+          const r = customer.prescription.right;
+          doc.text(`R: SPH ${r.sph} CYL ${r.cyl} AXIS ${r.axis}`, margin, yPos);
+          yPos += 3;
         }
         if (customer.prescription?.left) {
-          doc.text(`Left Eye - SPH: ${customer.prescription.left.sph || 'N/A'}, CYL: ${customer.prescription.left.cyl || 'N/A'}, AXIS: ${customer.prescription.left.axis || 'N/A'}`, 20, presY);
-          presY += 3;
+          const l = customer.prescription.left;
+          doc.text(`L: SPH ${l.sph} CYL ${l.cyl} AXIS ${l.axis}`, margin, yPos);
+          yPos += 3;
         }
-        if (customer.prescription?.ipd) {
-          doc.text(`IPD: ${customer.prescription.ipd}`, 20, presY);
-          presY += 3;
+        if (customer.prescription?.ipd || customer.prescription?.add) {
+          doc.text(`IPD: ${customer.prescription.ipd || '-'}  ADD: ${customer.prescription.add || '-'}`, margin, yPos);
+          yPos += 5;
         }
-        if (customer.prescription?.add) {
-          doc.text(`ADD: ${customer.prescription.add}`, 20, presY);
-          presY += 3;
-        }
+        yPos += 2;
       }
 
-      // Notes
-      if (customer.notes) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8); // text-xs
-        doc.text('Notes', 20, presY);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8); // text-xs
-        doc.text(customer.notes, 20, presY + 4, { maxWidth: 90 });
-      }
-
-      // Right side - Payment Summary (bg-gray-100 p-3 rounded border border-gray-300)
-      let paymentY = finalY;
-      // Draw background box (gray-100)
-      doc.setFillColor(240, 240, 240); // bg-gray-100
-      doc.rect(120, paymentY - 2, 70, 18, 'F');
-      doc.setDrawColor(200, 200, 200); // border-gray-300
-      doc.rect(120, paymentY - 2, 70, 18, 'S');
-
+      // Footer
+      yPos += 5;
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8); // text-xs
-      doc.text('Payment Summary', 125, paymentY);
+      doc.text('Thank you for your business!', centerX, yPos, { align: 'center' });
+      yPos += 5;
 
+      doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8); // text-xs
-      doc.text('Total Amount:', 125, paymentY + 4);
-      doc.setFont('helvetica', 'bold');
-      doc.text(formatCurrency(customer.payment?.amount || calculateTotal(customer.products)), 185, paymentY + 4, { align: 'right' });
-
-      doc.setFont('helvetica', 'normal');
-      doc.text('Paid:', 125, paymentY + 8);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 100, 0); // text-green-700
-      doc.text(formatCurrency(customer.payment?.paid || 0), 185, paymentY + 8, { align: 'right' });
-      doc.setTextColor(0, 0, 0);
-
-      // Draw divider line (border-t-2 border-gray-400)
-      doc.setDrawColor(150, 150, 150); // border-gray-400
-      doc.setLineWidth(0.2);
-      doc.line(125, paymentY + 11, 185, paymentY + 11);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.text('Remaining:', 125, paymentY + 14);
-      doc.setTextColor(200, 0, 0); // text-red-700
-      doc.text(formatCurrency(customer.payment?.remaining || 0), 185, paymentY + 14, { align: 'right' });
-      doc.setTextColor(0, 0, 0);
-
-      // Footer - Exact match to print template (lines 965-968)
-      // border-t-2 border-gray-400 pt-2 mt-4
-      // Calculate final position and ensure it fits on current page
-      const pageHeight = doc.internal.pageSize.height;
-      const maxFooterY = pageHeight - 25; // Leave more space for footer and bottom band to prevent page break
-      const footerY = Math.min(paymentY + 25, maxFooterY); // Ensure footer is within page bounds
-
-      // Only add footer if it fits on current page
-      if (footerY < pageHeight - 20) {
-        doc.setDrawColor(150, 150, 150); // border-gray-400
-        doc.setLineWidth(0.2);
-        doc.line(20, footerY, 190, footerY);
-        doc.setFontSize(8); // text-xs
-        doc.setFont('helvetica', 'bold'); // font-semibold
-        doc.text('Thank you for your business!', 105, footerY + 4, { align: 'center' });
-      }
-
-      // Business card information in the blue footer band (white text on blue)
-      // Only add if footer was added (meaning content fits on page)
-      if (footerY < pageHeight - 20) {
-        const bottomBandTop = pageHeight - 8;
-        doc.setFontSize(6);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(255, 255, 255); // White text on blue background
-        // Position text safely within the blue band (8mm high)
-        doc.text('HAJI NAWAB DIN & SONS OPTICAL | Prop: Adeel Feroz', 105, bottomBandTop + 1.5, { align: 'center' });
-        doc.text('Phone: 0321-7940339, 0321-6643839, 041-8725875 | Main Susan Road, Faisalabad', 105, bottomBandTop + 4.5, { align: 'center' });
-        doc.setTextColor(0, 0, 0); // Reset to black
-      }
+      doc.text('No return, No exchange', centerX, yPos, { align: 'center' });
     });
 
-    // Save PDF with random number
-    const randomNumber = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    // Save PDF
     const dateStr = new Date().toISOString().split('T')[0];
-    const fileName = `Invoices_${dateStr}_${randomNumber}.pdf`;
+    const fileName = `Selected_Invoices_${dateStr}.pdf`;
     doc.save(fileName);
   };
 
@@ -974,6 +813,7 @@ const Invoice = ({ initialCustomerId }) => {
                   </th>
                   <th className="px-3 py-2 text-left">Invoice No</th>
                   <th className="px-3 py-2 text-left">Customer Name</th>
+                  <th className="px-3 py-2 text-left">Family Member</th>
                   <th className="px-3 py-2 text-left">Phone</th>
                   <th className="px-3 py-2 text-left">Date</th>
                   <th className="px-3 py-2 text-right">Amount</th>
@@ -992,13 +832,25 @@ const Invoice = ({ initialCustomerId }) => {
                     <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        checked={selectedInvoiceIds.has(customer._id)}
-                        onChange={(e) => handleInvoiceCheckbox(customer._id, e.target.checked)}
+                        checked={selectedInvoiceIds.has(customer._id || customer.id)}
+                        onChange={(e) => handleInvoiceCheckbox(customer._id || customer.id, e.target.checked)}
                         className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
                       />
                     </td>
                     <td className="px-3 py-2 font-medium">{customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A')}</td>
                     <td className="px-3 py-2">{customer.customerName || 'N/A'}</td>
+                    <td className="px-3 py-2">
+                      {customer.familyMember && customer.familyMember.trim() !== '' ? (
+                        <span>
+                          {customer.familyMember}
+                          {customer.familyMemberRelation && customer.familyMemberRelation.trim() !== '' && (
+                            <span className="text-gray-500"> ({customer.familyMemberRelation})</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2">{customer.phoneNumber || 'N/A'}</td>
                     <td className="px-3 py-2">{formatDateTime(customer.createdAt)}</td>
                     <td className="px-3 py-2 text-right font-semibold">{formatCurrency(customer.payment?.amount || calculateTotal(customer.products))}</td>
@@ -1057,7 +909,7 @@ const Invoice = ({ initialCustomerId }) => {
 
       {/* Invoice Template - Only show when single invoice or when explicitly selected */}
       {selectedCustomer && selectedCustomers.length <= 1 && (
-        <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 print:shadow-none invoice-content print:hidden">
+        <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 print:shadow-none print:hidden">
           {/* Print Actions - Hidden when printing */}
           <div className="mb-6 flex gap-4 print:hidden">
             <button
@@ -1250,39 +1102,78 @@ const Invoice = ({ initialCustomerId }) => {
             {/* Footer */}
             <div className="text-center border-t-2 border-gray-300 pt-2 mt-4">
               <p className="text-xs text-gray-600">Thank you for your business!</p>
+              <p className="text-xs text-gray-600 mt-1">No return, No exchange</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Print View - Show all selected invoices when printing OR single invoice */}
-      {((selectedInvoiceIds.size > 0) || (selectedCustomer && selectedCustomers.length <= 1)) && (
-        <div className="hidden print:block">
-          {(() => {
-            // If single invoice, use selectedCustomer; otherwise use selected invoices
-            let invoicesToPrint = [];
-            if (selectedCustomers.length <= 1 && selectedCustomer) {
-              invoicesToPrint = [selectedCustomer];
-            } else if (selectedInvoiceIds.size > 0) {
-              invoicesToPrint = selectedCustomers.filter(c => selectedInvoiceIds.has(c._id));
-            } else if (selectedCustomers.length > 0) {
-              // Fallback: use all selected customers
-              invoicesToPrint = selectedCustomers;
+      {/* Print View - Only render when printing, positioned off-screen, shown during print */}
+      {(printData || printDataRef.current) && (
+        <div
+          className="print-container"
+          style={{
+            position: 'absolute',
+            left: '-9999px',
+            top: '-9999px',
+            width: '100%',
+            height: 'auto',
+            minHeight: 0,
+            maxHeight: 'none',
+            margin: 0,
+            padding: 0,
+            backgroundColor: 'white'
+          }}
+        >
+        {(() => {
+            // Use printData if available, otherwise use ref, otherwise determine from current state
+            let invoicesToPrint = printData || printDataRef.current;
+
+            if (!invoicesToPrint || invoicesToPrint.length === 0) {
+              // Fallback logic if printData is not set
+              if (selectedInvoiceIds.size > 0) {
+                invoicesToPrint = selectedCustomers.filter(c => {
+                  if (!c) return false;
+                  const customerId = c._id || c.id;
+                  return customerId && selectedInvoiceIds.has(customerId);
+                });
+              } else if (selectedCustomer) {
+                invoicesToPrint = [selectedCustomer];
+              } else if (selectedCustomers.length > 0) {
+                invoicesToPrint = selectedCustomers;
+              } else {
+                invoicesToPrint = [];
+              }
             }
 
-            // Filter out any null/undefined customers
-            invoicesToPrint = invoicesToPrint.filter(c => c != null);
+            // Filter out any null/undefined customers and ensure they have required data
+            invoicesToPrint = invoicesToPrint.filter(c => {
+              if (!c || c === null || c === undefined) return false;
+              // Ensure customer has at least an ID
+              return (c._id || c.id);
+            });
 
+            // Always render something for debugging
             if (invoicesToPrint.length === 0) {
-              return null;
+              return <div style={{ padding: '20px', fontSize: '16px' }}>No invoices available to print</div>;
             }
 
-            return invoicesToPrint.map((customer, index) => (
-              <div
-                key={customer._id || customer.id}
-                className="invoice-content mb-8"
-                style={{ pageBreakAfter: index < invoicesToPrint.length - 1 ? 'always' : 'auto' }}
-              >
+            return invoicesToPrint.map((customer, index) => {
+              const shouldBreakPage = index < invoicesToPrint.length - 1;
+              return (
+                <div
+                  key={customer._id || customer.id}
+                  className="invoice-content"
+                  style={{ 
+                    pageBreakAfter: shouldBreakPage ? 'always' : 'avoid',
+                    pageBreakInside: 'avoid',
+                    pageBreakBefore: 'avoid',
+                    marginBottom: 0,
+                    paddingBottom: 0,
+                    height: 'auto',
+                    minHeight: 0
+                  }}
+                >
                 {/* Header */}
                 <div className="text-center mb-6 border-b-2 border-gray-400 pb-3">
                   <h1 className="text-2xl font-bold text-gray-800 mb-1">HAJI NAWAB OPTICALS</h1>
@@ -1290,28 +1181,28 @@ const Invoice = ({ initialCustomerId }) => {
                 </div>
 
                 {/* Invoice Details */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="flex flex-col gap-2 mb-4">
                   <div>
                     <h3 className="font-bold text-gray-700 mb-1 text-xs">Invoice Details</h3>
                     <p className="text-xs text-gray-600">Invoice No: <span className="font-semibold">{customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A')}</span></p>
-                    <p className="text-xs text-gray-600">Date & Time: <span className="font-semibold">{formatDateTime(customer.createdAt)}</span></p>
+                    <p className="text-xs text-gray-600">Date: <span className="font-semibold">{formatDateTime(customer.createdAt)}</span></p>
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-700 mb-1 text-xs">Bill To</h3>
                     <p className="text-xs text-gray-600 font-semibold">{customer.customerName || 'N/A'}</p>
-                    {customer.familyMember && (
+                    {customer.familyMember && customer.familyMember.trim() !== '' && (
                       <p className="text-xs text-gray-600">
-                        Family Member: <span className="font-semibold">
+                        FM: <span className="font-semibold">
                           {customer.familyMember}
-                          {customer.familyMemberRelation && (
+                          {customer.familyMemberRelation && customer.familyMemberRelation.trim() !== '' && (
                             <span className="text-gray-500"> ({customer.familyMemberRelation})</span>
                           )}
                         </span>
                       </p>
                     )}
-                    <p className="text-xs text-gray-600">Phone: {customer.phoneNumber || 'N/A'}</p>
+                    <p className="text-xs text-gray-600">Ph: {customer.phoneNumber || 'N/A'}</p>
                     {customer.doctorName && (
-                      <p className="text-xs text-gray-600">Doctor: {customer.doctorName}</p>
+                      <p className="text-xs text-gray-600">Dr: {customer.doctorName}</p>
                     )}
                   </div>
                 </div>
@@ -1351,30 +1242,26 @@ const Invoice = ({ initialCustomerId }) => {
                 </div>
 
                 {/* Payment Summary */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="flex flex-col gap-4 mb-4">
                   <div>
                     {customer.hasPrescription && (
                       <div className="mb-2">
-                        <h3 className="font-bold text-gray-700 mb-1 text-xs">Prescription Details</h3>
+                        <h3 className="font-bold text-gray-700 mb-1 text-xs">Prescription</h3>
                         {customer.prescription?.right && (
                           <p className="text-xs text-gray-600">
-                            Right Eye - SPH: {customer.prescription.right.sph || 'N/A'},
-                            CYL: {customer.prescription.right.cyl || 'N/A'},
-                            AXIS: {customer.prescription.right.axis || 'N/A'}
+                            R: SPH {customer.prescription.right.sph || '-'} / CYL {customer.prescription.right.cyl || '-'} / AXIS {customer.prescription.right.axis || '-'}
                           </p>
                         )}
                         {customer.prescription?.left && (
                           <p className="text-xs text-gray-600">
-                            Left Eye - SPH: {customer.prescription.left.sph || 'N/A'},
-                            CYL: {customer.prescription.left.cyl || 'N/A'},
-                            AXIS: {customer.prescription.left.axis || 'N/A'}
+                            L: SPH {customer.prescription.left.sph || '-'} / CYL {customer.prescription.left.cyl || '-'} / AXIS {customer.prescription.left.axis || '-'}
                           </p>
                         )}
-                        {customer.prescription?.ipd && (
-                          <p className="text-xs text-gray-600">IPD: {customer.prescription.ipd}</p>
-                        )}
-                        {customer.prescription?.add && (
-                          <p className="text-xs text-gray-600">ADD: {customer.prescription.add}</p>
+                        {(customer.prescription?.ipd || customer.prescription?.add) && (
+                          <p className="text-xs text-gray-600">
+                            {customer.prescription.ipd && `IPD: ${customer.prescription.ipd} `}
+                            {customer.prescription.add && `ADD: ${customer.prescription.add}`}
+                          </p>
                         )}
                       </div>
                     )}
@@ -1385,31 +1272,33 @@ const Invoice = ({ initialCustomerId }) => {
                       </div>
                     )}
                   </div>
-                  <div className="bg-gray-100 p-3 rounded border border-gray-300">
-                    <h3 className="font-bold text-gray-700 mb-2 text-xs">Payment Summary</h3>
+                  <div className="bg-gray-100 p-2 rounded border border-gray-300">
+                    <h3 className="font-bold text-gray-700 mb-1 text-xs">Payment</h3>
                     <div className="space-y-1">
                       <div className="flex justify-between">
-                        <span className="text-xs text-gray-600">Total Amount:</span>
+                        <span className="text-xs text-gray-600">Total:</span>
                         <span className="text-xs font-bold">{formatCurrency(customer.payment?.amount || calculateTotal(customer.products))}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-xs text-gray-600">Paid:</span>
                         <span className="text-xs font-bold text-green-700">{formatCurrency(customer.payment?.paid || 0)}</span>
                       </div>
-                      <div className="flex justify-between border-t-2 border-gray-400 pt-1 mt-1">
-                        <span className="text-xs font-bold text-gray-700">Remaining:</span>
+                      <div className="flex justify-between border-t border-gray-400 pt-1 mt-1">
+                        <span className="text-xs font-bold text-gray-700">Rem:</span>
                         <span className="text-xs font-bold text-red-700">{formatCurrency(customer.payment?.remaining || 0)}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Footer */}
-                <div className="text-center border-t-2 border-gray-400 pt-2 mt-4">
-                  <p className="text-xs text-gray-600 font-semibold">Thank you for your business!</p>
+                {/* Footer - Last Element */}
+                <div className="text-center border-t-2 border-gray-400 invoice-footer" style={{ paddingTop: '4px', marginTop: '4px', marginBottom: 0, paddingBottom: 0 }}>
+                  <p className="text-xs text-gray-600 font-semibold" style={{ marginBottom: '1px', marginTop: 0 }}>Thank you for your business!</p>
+                  <p className="text-xs text-gray-600" style={{ marginTop: '1px', marginBottom: 0, paddingBottom: 0 }}>No return, No exchange</p>
                 </div>
               </div>
-            ));
+              );
+            });
           })()}
         </div>
       )}

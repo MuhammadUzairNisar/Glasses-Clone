@@ -19,10 +19,55 @@ const Invoice = ({ initialCustomerId }) => {
   const [updating, setUpdating] = useState(false);
   const [printData, setPrintData] = useState(null); // Store print data separately
   const printDataRef = useRef(null); // Ref for immediate access to print data
+  const [shouldPrint, setShouldPrint] = useState(false); // Trigger flag for printing
 
   useEffect(() => {
     fetchCustomers();
   }, []);
+
+  // Effect to trigger printing after data is ready
+  useEffect(() => {
+    if (shouldPrint && (printData || printDataRef.current)) {
+      const dataToUse = printDataRef.current || printData;
+      console.log('========== PRINT EFFECT TRIGGERED ==========');
+      console.log('Print data count:', dataToUse?.length);
+      console.log('Print data IDs:', dataToUse?.map(c => c._id || c.id));
+      
+      // Reset the flag
+      setShouldPrint(false);
+      
+      // Use multiple animation frames to ensure DOM is fully updated
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            console.log('========== EXECUTING WINDOW.PRINT() ==========');
+            console.log('Final print data ref count:', printDataRef.current?.length);
+            console.log('Final print data state count:', printData?.length);
+            
+            // Force one final check before printing
+            const finalData = printDataRef.current || printData;
+            if (finalData && finalData.length > 0) {
+              console.log('CONFIRMED: About to print', finalData.length, 'invoices');
+              
+              // Check if print container actually has content
+              const printContainer = document.querySelector('.print-container');
+              if (printContainer) {
+                const invoiceElements = printContainer.querySelectorAll('.invoice-content');
+                console.log('DOM Check: Found', invoiceElements.length, 'invoice elements in print container');
+                console.log('Print container HTML length:', printContainer.innerHTML.length);
+              } else {
+                console.error('ERROR: Print container not found in DOM!');
+              }
+              
+              window.print();
+            } else {
+              console.error('ERROR: No data available at print time!');
+            }
+          });
+        });
+      });
+    }
+  }, [shouldPrint, printData]);
 
   // Handle initial customer ID from save and print
   useEffect(() => {
@@ -156,10 +201,8 @@ const Invoice = ({ initialCustomerId }) => {
   const handleInvoiceSelect = (customerId) => {
     const customer = selectedCustomers.find(c => c._id === customerId);
     setSelectedCustomer(customer);
-    // Clear selected invoices when selecting a single customer for viewing
-    if (selectedCustomers.length > 1) {
-      setSelectedInvoiceIds(new Set([customerId]));
-    }
+    // Don't clear selected invoices when clicking a row - user may want to view and print multiple
+    // Only update the view, not the selection state
   };
 
   const handleInvoiceCheckbox = (customerId, checked) => {
@@ -231,28 +274,35 @@ const Invoice = ({ initialCustomerId }) => {
     }, 0);
   };
 
+  const formatCylinder = (value) => {
+    if (!value && value !== 0) return 'N/A';
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return 'N/A';
+    // Add + sign for positive values
+    return numValue >= 0 ? `+${numValue}` : `${numValue}`;
+  };
+
   const handlePrint = (customer = null) => {
     // If a specific customer is passed, use it for printing
     if (customer) {
       const printArray = [customer];
-      setPrintData(printArray); // Store print data in state
-      printDataRef.current = printArray; // Also store in ref for immediate access
+      // Set ref FIRST for immediate access
+      printDataRef.current = printArray;
+      // Then set state and trigger print
+      setPrintData(printArray);
+      setShouldPrint(true);
       // Also update selectedCustomer for UI consistency
       setSelectedCustomer(customer);
-      // Clear selected invoice IDs to ensure single invoice print mode
-      setSelectedInvoiceIds(new Set());
-      // Wait for state to update before printing - increased timeout
-      setTimeout(() => {
-        window.print();
-      }, 500);
+      console.log('Single invoice print triggered:', customer._id || customer.id);
     } else if (selectedCustomer) {
       // Print the currently selected customer
       const printArray = [selectedCustomer];
-      setPrintData(printArray);
+      // Set ref FIRST for immediate access
       printDataRef.current = printArray;
-      setTimeout(() => {
-        window.print();
-      }, 300);
+      // Then set state and trigger print
+      setPrintData(printArray);
+      setShouldPrint(true);
+      console.log('Selected invoice print triggered:', selectedCustomer._id || selectedCustomer.id);
     }
   };
 
@@ -263,33 +313,74 @@ const Invoice = ({ initialCustomerId }) => {
       return;
     }
 
-    // Set print data for multiple invoices - ensure we get all selected
-    const selectedInvoices = selectedCustomers.filter(c => {
-      if (!c) return false;
+    console.log('========== HANDLE PRINT SELECTED CALLED ==========');
+    console.log('selectedInvoiceIds:', Array.from(selectedInvoiceIds));
+    console.log('selectedInvoiceIds size:', selectedInvoiceIds.size);
+    console.log('customers count:', customers.length);
+    console.log('selectedCustomers count:', selectedCustomers.length);
+
+    // Set print data for multiple invoices - filter from full customers array
+    // This ensures we find all selected invoices even if selectedCustomers has changed
+    const selectedInvoices = customers.filter(c => {
+      if (!c) {
+        console.log('Skipping null/undefined customer');
+        return false;
+      }
       // Check both _id and id properties for compatibility
       const customerId = c._id || c.id;
-      return customerId && selectedInvoiceIds.has(customerId);
+      const isSelected = selectedInvoiceIds.has(customerId);
+      console.log('Checking customer:', customerId, '| Name:', c.customerName, '| isSelected:', isSelected);
+      return customerId && isSelected;
     });
     
-    if (selectedInvoices.length === 0) {
-      setError('No invoices found matching the selected IDs. Please try selecting again.');
-      setTimeout(() => setError(''), 5000);
-      return;
-    }
+    console.log('========== FILTER RESULTS ==========');
+    console.log('Selected invoices count after filter:', selectedInvoices.length);
+    console.log('Expected count:', selectedInvoiceIds.size);
+    console.log('Selected invoice IDs:', selectedInvoices.map(c => c._id || c.id));
+    console.log('Selected invoice names:', selectedInvoices.map(c => c.customerName));
     
-    if (selectedInvoices.length !== selectedInvoiceIds.size) {
-      console.warn(`Warning: Expected ${selectedInvoiceIds.size} invoices but found ${selectedInvoices.length}`);
+    if (selectedInvoices.length === 0) {
+      // If no invoices found, try alternative approach - rebuild from selectedInvoiceIds
+      console.warn('No invoices found with direct filter. Trying alternative approach...');
+      const alternativeInvoices = [];
+      selectedInvoiceIds.forEach(id => {
+        const found = customers.find(c => (c._id === id || c.id === id));
+        if (found) {
+          console.log('Found invoice for id:', id);
+          alternativeInvoices.push(found);
+        }
+      });
+      
+      console.log('Alternative approach found:', alternativeInvoices.length, 'invoices');
+      
+      if (alternativeInvoices.length === 0) {
+        setError('No invoices found matching the selected IDs. Please try selecting again.');
+        setTimeout(() => setError(''), 5000);
+        return;
+      }
+      
+      // Use alternative approach results
+      // Create a NEW array instance to force React to detect the change
+      const invoicesToPrint = [...alternativeInvoices];
+      console.log('Setting print data (alternative):', invoicesToPrint.length, 'invoices');
+      // Update ref FIRST for immediate access
+      printDataRef.current = invoicesToPrint;
+      // Then update state and trigger print
+      setPrintData(invoicesToPrint);
+      // Trigger print after state update
+      setShouldPrint(true);
+    } else {
+      // Use direct filter results
+      // Create a NEW array instance to force React to detect the change
+      const invoicesToPrint = [...selectedInvoices];
+      console.log('Setting print data (direct):', invoicesToPrint.length, 'invoices');
+      // Update ref FIRST for immediate access
+      printDataRef.current = invoicesToPrint;
+      // Then update state and trigger print
+      setPrintData(invoicesToPrint);
+      // Trigger print after state update
+      setShouldPrint(true);
     }
-
-    // Set print data for multiple invoices
-    setPrintData(selectedInvoices);
-    printDataRef.current = selectedInvoices;
-
-    // Print all selected invoices - they will be rendered in the print view
-    // The print view will show all selected invoices with page breaks
-    setTimeout(() => {
-      window.print();
-    }, 500);
   };
 
   const handleSavePDF = (customer = null) => {
@@ -346,7 +437,7 @@ const Invoice = ({ initialCustomerId }) => {
       // Header
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('HAJI NAWAB OPTICALS', centerX, yPos, { align: 'center' });
+      doc.text('Haji Nawab Din Optical Service', centerX, yPos, { align: 'center' });
       yPos += 5;
 
       doc.setFontSize(8);
@@ -513,7 +604,13 @@ const Invoice = ({ initialCustomerId }) => {
       return;
     }
 
-    const selectedInvoices = selectedCustomers.filter(c => selectedInvoiceIds.has(c._id));
+    // Get all selected invoices using same logic as handlePrintSelected
+    // Filter from full customers array to ensure we find all selected invoices
+    const selectedInvoices = customers.filter(c => {
+      if (!c) return false;
+      const customerId = c._id || c.id;
+      return customerId && selectedInvoiceIds.has(customerId);
+    });
 
     // Create a single PDF with all selected invoices
     // Initialize for 80mm width
@@ -541,7 +638,7 @@ const Invoice = ({ initialCustomerId }) => {
       // Header
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('HAJI NAWAB OPTICALS', centerX, yPos, { align: 'center' });
+      doc.text('Haji Nawab Din Optical Service', centerX, yPos, { align: 'center' });
       yPos += 5;
 
       doc.setFontSize(8);
@@ -1022,14 +1119,14 @@ const Invoice = ({ initialCustomerId }) => {
                     {selectedCustomer.prescription?.right && (
                       <p className="text-xs text-gray-600">
                         Right Eye - SPH: {selectedCustomer.prescription.right.sph || 'N/A'},
-                        CYL: {selectedCustomer.prescription.right.cyl || 'N/A'},
+                        CYL: {formatCylinder(selectedCustomer.prescription.right.cyl)},
                         AXIS: {selectedCustomer.prescription.right.axis || 'N/A'}
                       </p>
                     )}
                     {selectedCustomer.prescription?.left && (
                       <p className="text-xs text-gray-600">
                         Left Eye - SPH: {selectedCustomer.prescription.left.sph || 'N/A'},
-                        CYL: {selectedCustomer.prescription.left.cyl || 'N/A'},
+                        CYL: {formatCylinder(selectedCustomer.prescription.left.cyl)},
                         AXIS: {selectedCustomer.prescription.left.axis || 'N/A'}
                       </p>
                     )}
@@ -1108,43 +1205,54 @@ const Invoice = ({ initialCustomerId }) => {
         </div>
       )}
 
-      {/* Print View - Only render when printing, positioned off-screen, shown during print */}
-      {(printData || printDataRef.current) && (
-        <div
-          className="print-container"
-          style={{
-            position: 'absolute',
-            left: '-9999px',
-            top: '-9999px',
-            width: '100%',
-            height: 'auto',
-            minHeight: 0,
-            maxHeight: 'none',
-            margin: 0,
-            padding: 0,
-            backgroundColor: 'white'
-          }}
-        >
+      {/* Print View - Always rendered but positioned off-screen, shown during print */}
+      <div
+        className="print-container"
+        style={{
+          position: 'absolute',
+          left: '-9999px',
+          top: '-9999px',
+          width: '100%',
+          height: 'auto',
+          minHeight: 0,
+          maxHeight: 'none',
+          margin: 0,
+          padding: 0,
+          backgroundColor: 'white'
+        }}
+      >
         {(() => {
-            // Use printData if available, otherwise use ref, otherwise determine from current state
-            let invoicesToPrint = printData || printDataRef.current;
+            // ALWAYS use ref first since it's set immediately, then fallback to state
+            let invoicesToPrint = printDataRef.current || printData;
+
+            console.log('========== PRINT VIEW RENDERING ==========');
+            console.log('printDataRef.current count:', printDataRef.current?.length);
+            console.log('printData state count:', printData?.length);
+            console.log('invoicesToPrint count (selected):', invoicesToPrint?.length);
+            console.log('invoicesToPrint IDs:', invoicesToPrint?.map(c => c._id || c.id));
 
             if (!invoicesToPrint || invoicesToPrint.length === 0) {
               // Fallback logic if printData is not set
+              console.log('No print data, using fallback logic');
               if (selectedInvoiceIds.size > 0) {
-                invoicesToPrint = selectedCustomers.filter(c => {
+                console.log('Using selectedInvoiceIds fallback, size:', selectedInvoiceIds.size);
+                invoicesToPrint = customers.filter(c => {
                   if (!c) return false;
                   const customerId = c._id || c.id;
                   return customerId && selectedInvoiceIds.has(customerId);
                 });
               } else if (selectedCustomer) {
+                console.log('Using selectedCustomer fallback');
                 invoicesToPrint = [selectedCustomer];
               } else if (selectedCustomers.length > 0) {
+                console.log('Using selectedCustomers fallback, count:', selectedCustomers.length);
                 invoicesToPrint = selectedCustomers;
               } else {
                 invoicesToPrint = [];
               }
             }
+
+            console.log('Final invoicesToPrint count:', invoicesToPrint?.length);
 
             // Filter out any null/undefined customers and ensure they have required data
             invoicesToPrint = invoicesToPrint.filter(c => {
@@ -1153,17 +1261,20 @@ const Invoice = ({ initialCustomerId }) => {
               return (c._id || c.id);
             });
 
-            // Always render something for debugging
+            // Return null if no invoices to print
             if (invoicesToPrint.length === 0) {
-              return <div style={{ padding: '20px', fontSize: '16px' }}>No invoices available to print</div>;
+              console.log('No invoices to print, returning null');
+              return null;
             }
 
+            console.log('Rendering', invoicesToPrint.length, 'invoices for printing');
             return invoicesToPrint.map((customer, index) => {
               const shouldBreakPage = index < invoicesToPrint.length - 1;
+              const isLastInvoice = index === invoicesToPrint.length - 1;
               return (
                 <div
                   key={customer._id || customer.id}
-                  className="invoice-content"
+                  className={`invoice-content ${isLastInvoice ? 'invoice-content-last' : ''}`}
                   style={{ 
                     pageBreakAfter: shouldBreakPage ? 'always' : 'avoid',
                     pageBreakInside: 'avoid',
@@ -1176,7 +1287,7 @@ const Invoice = ({ initialCustomerId }) => {
                 >
                 {/* Header */}
                 <div className="text-center mb-6 border-b-2 border-gray-400 pb-3">
-                  <h1 className="text-2xl font-bold text-gray-800 mb-1">HAJI NAWAB OPTICALS</h1>
+                  <h1 className="text-2xl font-bold text-gray-800 mb-1">Haji Nawab Din Optical Service</h1>
                   <p className="text-sm text-gray-600 font-semibold">Invoice</p>
                 </div>
 
@@ -1184,25 +1295,25 @@ const Invoice = ({ initialCustomerId }) => {
                 <div className="flex flex-col gap-2 mb-4">
                   <div>
                     <h3 className="font-bold text-gray-700 mb-1 text-xs">Invoice Details</h3>
-                    <p className="text-xs text-gray-600">Invoice No: <span className="font-semibold">{customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A')}</span></p>
-                    <p className="text-xs text-gray-600">Date: <span className="font-semibold">{formatDateTime(customer.createdAt)}</span></p>
+                    <p className="text-xs text-gray-600 font-bold">Invoice No: <span className="font-bold">{customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A')}</span></p>
+                    <p className="text-xs text-gray-600 font-bold">Date: <span className="font-bold">{formatDateTime(customer.createdAt)}</span></p>
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-700 mb-1 text-xs">Bill To</h3>
-                    <p className="text-xs text-gray-600 font-semibold">{customer.customerName || 'N/A'}</p>
+                    <p className="text-xs text-gray-600 font-bold">{customer.customerName || 'N/A'}</p>
                     {customer.familyMember && customer.familyMember.trim() !== '' && (
-                      <p className="text-xs text-gray-600">
-                        FM: <span className="font-semibold">
+                      <p className="text-xs text-gray-600 font-bold">
+                        FM: <span className="font-bold">
                           {customer.familyMember}
                           {customer.familyMemberRelation && customer.familyMemberRelation.trim() !== '' && (
-                            <span className="text-gray-500"> ({customer.familyMemberRelation})</span>
+                            <span className="font-bold"> ({customer.familyMemberRelation})</span>
                           )}
                         </span>
                       </p>
                     )}
-                    <p className="text-xs text-gray-600">Ph: {customer.phoneNumber || 'N/A'}</p>
+                    <p className="text-xs text-gray-600 font-bold">Ph: {customer.phoneNumber || 'N/A'}</p>
                     {customer.doctorName && (
-                      <p className="text-xs text-gray-600">Dr: {customer.doctorName}</p>
+                      <p className="text-xs text-gray-600 font-bold">Dr: {customer.doctorName}</p>
                     )}
                   </div>
                 </div>
@@ -1212,27 +1323,27 @@ const Invoice = ({ initialCustomerId }) => {
                   <table className="w-full border-collapse border border-gray-400 text-xs">
                     <thead>
                       <tr className="bg-gray-800 text-white">
-                        <th className="border border-gray-400 px-2 py-1 text-left font-semibold">Category</th>
-                        <th className="border border-gray-400 px-2 py-1 text-left font-semibold">Description</th>
-                        <th className="border border-gray-400 px-2 py-1 text-center font-semibold">Qty</th>
-                        <th className="border border-gray-400 px-2 py-1 text-right font-semibold">Price</th>
-                        <th className="border border-gray-400 px-2 py-1 text-right font-semibold">Total</th>
+                        <th className="border border-gray-400 px-2 py-1 text-left font-bold">Category</th>
+                        <th className="border border-gray-400 px-2 py-1 text-left font-bold">Description</th>
+                        <th className="border border-gray-400 px-2 py-1 text-center font-bold">Qty</th>
+                        <th className="border border-gray-400 px-2 py-1 text-right font-bold">Price</th>
+                        <th className="border border-gray-400 px-2 py-1 text-right font-bold">Total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {customer.products && customer.products.length > 0 ? (
                         customer.products.map((product, idx) => (
                           <tr key={idx} className="hover:bg-gray-50">
-                            <td className="border border-gray-400 px-2 py-1">{product.category || '-'}</td>
-                            <td className="border border-gray-400 px-2 py-1">{product.description || '-'}</td>
-                            <td className="border border-gray-400 px-2 py-1 text-center">{product.qty || 0}</td>
-                            <td className="border border-gray-400 px-2 py-1 text-right">{formatCurrency(product.price)}</td>
-                            <td className="border border-gray-400 px-2 py-1 text-right font-semibold">{formatCurrency(product.total)}</td>
+                            <td className="border border-gray-400 px-2 py-1 font-bold">{product.category || '-'}</td>
+                            <td className="border border-gray-400 px-2 py-1 font-bold">{product.description || '-'}</td>
+                            <td className="border border-gray-400 px-2 py-1 text-center font-bold">{product.qty || 0}</td>
+                            <td className="border border-gray-400 px-2 py-1 text-right font-bold">{formatCurrency(product.price)}</td>
+                            <td className="border border-gray-400 px-2 py-1 text-right font-bold">{formatCurrency(product.total)}</td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="5" className="border border-gray-400 px-2 py-1 text-center text-gray-500">
+                          <td colSpan="5" className="border border-gray-400 px-2 py-1 text-center text-gray-500 font-bold">
                             No products found
                           </td>
                         </tr>
@@ -1248,17 +1359,17 @@ const Invoice = ({ initialCustomerId }) => {
                       <div className="mb-2">
                         <h3 className="font-bold text-gray-700 mb-1 text-xs">Prescription</h3>
                         {customer.prescription?.right && (
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs text-gray-600 font-bold">
                             R: SPH {customer.prescription.right.sph || '-'} / CYL {customer.prescription.right.cyl || '-'} / AXIS {customer.prescription.right.axis || '-'}
                           </p>
                         )}
                         {customer.prescription?.left && (
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs text-gray-600 font-bold">
                             L: SPH {customer.prescription.left.sph || '-'} / CYL {customer.prescription.left.cyl || '-'} / AXIS {customer.prescription.left.axis || '-'}
                           </p>
                         )}
                         {(customer.prescription?.ipd || customer.prescription?.add) && (
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs text-gray-600 font-bold">
                             {customer.prescription.ipd && `IPD: ${customer.prescription.ipd} `}
                             {customer.prescription.add && `ADD: ${customer.prescription.add}`}
                           </p>
@@ -1268,7 +1379,7 @@ const Invoice = ({ initialCustomerId }) => {
                     {customer.notes && (
                       <div>
                         <h3 className="font-bold text-gray-700 mb-1 text-xs">Notes</h3>
-                        <p className="text-xs text-gray-600">{customer.notes}</p>
+                        <p className="text-xs text-gray-600 font-bold">{customer.notes}</p>
                       </div>
                     )}
                   </div>
@@ -1276,11 +1387,11 @@ const Invoice = ({ initialCustomerId }) => {
                     <h3 className="font-bold text-gray-700 mb-1 text-xs">Payment</h3>
                     <div className="space-y-1">
                       <div className="flex justify-between">
-                        <span className="text-xs text-gray-600">Total:</span>
+                        <span className="text-xs text-gray-600 font-bold">Total:</span>
                         <span className="text-xs font-bold">{formatCurrency(customer.payment?.amount || calculateTotal(customer.products))}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-xs text-gray-600">Paid:</span>
+                        <span className="text-xs text-gray-600 font-bold">Paid:</span>
                         <span className="text-xs font-bold text-green-700">{formatCurrency(customer.payment?.paid || 0)}</span>
                       </div>
                       <div className="flex justify-between border-t border-gray-400 pt-1 mt-1">
@@ -1293,15 +1404,14 @@ const Invoice = ({ initialCustomerId }) => {
 
                 {/* Footer - Last Element */}
                 <div className="text-center border-t-2 border-gray-400 invoice-footer" style={{ paddingTop: '4px', marginTop: '4px', marginBottom: 0, paddingBottom: 0 }}>
-                  <p className="text-xs text-gray-600 font-semibold" style={{ marginBottom: '1px', marginTop: 0 }}>Thank you for your business!</p>
-                  <p className="text-xs text-gray-600" style={{ marginTop: '1px', marginBottom: 0, paddingBottom: 0 }}>No return, No exchange</p>
+                  <p className="text-xs text-gray-600 font-bold" style={{ marginBottom: '1px', marginTop: 0 }}>فٹنگ و مرمت کے دوران فریم جل جانے یا شیشہ ٹوٹ جانے کی فرم ذمہ دار نہ ہوگی</p>
+                  <p className="text-xs text-gray-600 font-bold" style={{ marginTop: '1px', marginBottom: 0, paddingBottom: 0 }}>15 یوم کے بعد عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی</p>
                 </div>
               </div>
               );
             });
           })()}
-        </div>
-      )}
+      </div>
 
       {!selectedCustomer && !loading && (
         <div className="bg-white rounded-lg shadow-sm p-8 text-center">

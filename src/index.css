@@ -58,11 +58,23 @@
   .invoice-content {
     position: relative !important;
     width: 100% !important;
-    max-width: 76mm !important;
+    max-width: 70mm !important;
     margin: 0 auto !important;
     padding: 0 !important;
     overflow: visible !important;
     height: auto !important;
+  }
+  
+  /* Make all text elements bold in invoice */
+  .invoice-content p,
+  .invoice-content span,
+  .invoice-content td,
+  .invoice-content th,
+  .invoice-content h1,
+  .invoice-content h2,
+  .invoice-content h3,
+  .invoice-content div {
+    font-weight: bold !important;
   }
 
   .invoice-content h2,
@@ -105,7 +117,7 @@
 
   @page {
     margin: 2mm;
-    size: 80mm auto;
+    size: 70mm auto;
     page-break-after: auto;
   }
   
@@ -129,8 +141,8 @@
     padding-bottom: 0 !important;
   }
   
-  /* Hide everything after invoice-content in print container */
-  .print-container .invoice-content ~ * {
+  /* Hide everything after invoice-content in print container, but allow multiple invoice-content elements */
+  .print-container > *:not(.invoice-content) {
     display: none !important;
     visibility: hidden !important;
     height: 0 !important;
@@ -149,13 +161,18 @@
   
   .invoice-content {
     page-break-inside: avoid !important;
-    page-break-after: avoid !important;
+    /* page-break-after is controlled by inline styles for multiple invoices */
     page-break-before: avoid !important;
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
     margin-bottom: 0 !important;
     padding-bottom: 0 !important;
+  }
+  
+  /* Only the last invoice should avoid page break after */
+  .invoice-content-last {
+    page-break-after: avoid !important;
   }
   
   /* HARD RULE: Trim everything after footer - Footer is the absolute end */

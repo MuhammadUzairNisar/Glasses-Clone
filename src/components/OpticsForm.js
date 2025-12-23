@@ -371,6 +371,26 @@ const OpticsForm = ({ onSaveSuccess }) => {
     return options;
   };
 
+  // Generate CYL options with + sign for positive values, starting from positive side
+  const generateCylOptions = (start, end, step = 0.25) => {
+    const options = [];
+    // Add positive values first: 0 to +10
+    for (let i = 0; i <= end; i += step) {
+      const value = parseFloat(i.toFixed(2));
+      if (value > 0) {
+        options.push('+' + value.toFixed(2));
+      } else {
+        options.push(value.toFixed(2));
+      }
+    }
+    // Add negative values: -0.25 to -10
+    for (let i = -step; i >= start; i -= step) {
+      const value = parseFloat(i.toFixed(2));
+      options.push(value.toFixed(2));
+    }
+    return options;
+  };
+
   // Generate SPH options: 0, +0.25 to +20, then -0.25 to -20
   const generateSphOptions = () => {
     const options = ['0.00']; // Start with 0
@@ -386,7 +406,7 @@ const OpticsForm = ({ onSaveSuccess }) => {
   };
 
   const sphOptions = generateSphOptions();
-  const cylOptions = generateNumericOptions(-10, 10, 0.25);
+  const cylOptions = generateCylOptions(-10, 10, 0.25);
   const axisOptions = Array.from({ length: 181 }, (_, i) => i); // 0 to 180
   const ipdOptions = generateNumericOptions(50, 80, 0.5);
   const addOptions = generateNumericOptions(0, 4, 0.25);
@@ -721,35 +741,79 @@ const OpticsForm = ({ onSaveSuccess }) => {
                       <input
                         type="text"
                         value={product.description}
-                        onChange={(e) => handleProductChange(index, 'description', e.target.value)}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Allow only alphanumeric characters and spaces
+                          const filtered = value.replace(/[^a-zA-Z0-9\s]/g, '');
+                          handleProductChange(index, 'description', filtered);
+                        }}
+                        onKeyPress={(e) => {
+                          // Prevent special characters from being typed
+                          if (!/[a-zA-Z0-9\s]/.test(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
                         placeholder="Enter description"
                       />
                     </td>
                     <td>
                       <input
-                        type="number"
+                        type="text"
                         value={product.qty}
-                        onChange={(e) => handleProductChange(index, 'qty', e.target.value)}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Only allow digits
+                          const digitsOnly = value.replace(/[^0-9]/g, '');
+                          handleProductChange(index, 'qty', digitsOnly);
+                        }}
+                        onKeyPress={(e) => {
+                          // Prevent any non-digit characters from being typed
+                          if (!/[0-9]/.test(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
                         placeholder="0"
-                        min="0"
+                        inputMode="numeric"
                       />
                     </td>
                     <td>
                       <input
-                        type="number"
+                        type="text"
                         value={product.price}
-                        onChange={(e) => handleProductChange(index, 'price', e.target.value)}
-                        placeholder="0.00"
-                        min="0"
-                        step="0.01"
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Only allow digits, no decimals or special characters
+                          const digitsOnly = value.replace(/[^0-9]/g, '');
+                          handleProductChange(index, 'price', digitsOnly);
+                        }}
+                        onKeyPress={(e) => {
+                          // Prevent any non-digit characters from being typed
+                          if (!/[0-9]/.test(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        placeholder="0"
+                        inputMode="numeric"
                       />
                     </td>
                     <td>
                       <input
                         type="text"
                         value={product.total}
-                        readOnly
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Only allow digits
+                          const digitsOnly = value.replace(/[^0-9]/g, '');
+                          handleProductChange(index, 'total', digitsOnly);
+                        }}
+                        onKeyPress={(e) => {
+                          // Prevent any non-digit characters from being typed
+                          if (!/[0-9]/.test(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
                         className="total-field"
+                        inputMode="numeric"
                       />
                     </td>
                     <td>
@@ -789,12 +853,22 @@ const OpticsForm = ({ onSaveSuccess }) => {
             <div className="form-group">
               <label>Paid</label>
               <input
-                type="number"
+                type="text"
                 value={formData.payment.paid}
-                onChange={(e) => handlePaymentChange('paid', e.target.value)}
-                placeholder="0.00"
-                min="0"
-                step="0.01"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Only allow digits, no decimals or special characters
+                  const digitsOnly = value.replace(/[^0-9]/g, '');
+                  handlePaymentChange('paid', digitsOnly);
+                }}
+                onKeyPress={(e) => {
+                  // Prevent any non-digit characters from being typed
+                  if (!/[0-9]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+                placeholder="0"
+                inputMode="numeric"
               />
             </div>
             <div className="form-group">

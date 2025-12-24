@@ -1338,14 +1338,14 @@ const Invoice = ({ initialCustomerId }) => {
                     <p>0321-6643839</p>
                     <p>041-8725875</p>
                   </div>
-                  <p className="text-sm text-black font-bold mt-3">Invoice</p>
+                  <p className="text-sm text-black font-bold mt-3">Slip</p>
                 </div>
 
-                {/* Invoice Details */}
+                {/* Slip Details */}
                 <div className="flex flex-col gap-2 mb-4">
                   <div>
-                    <h3 className="font-bold text-black mb-1 text-xs">Invoice Details</h3>
-                    <p className="text-xs text-black font-bold">Invoice No: <span className="font-bold">{customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A')}</span></p>
+                    <h3 className="font-bold text-black mb-1 text-xs">Slip Details</h3>
+                    <p className="text-xs text-black font-bold">Slip No: <span className="font-bold">{customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A')}</span></p>
                     <p className="text-xs text-black font-bold">Date: <span className="font-bold">{formatDateTime(customer.createdAt)}</span></p>
                   </div>
                   <div>

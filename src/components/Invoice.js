@@ -383,7 +383,7 @@ const Invoice = ({ initialCustomerId }) => {
     }
   };
 
-  const handleSavePDF = (customer = null) => {
+  const handleSavePDF = async (customer = null) => {
     // Try to get customer data from multiple sources - prioritize passed customer
     let customerToSave = customer || selectedCustomer;
 
@@ -418,6 +418,16 @@ const Invoice = ({ initialCustomerId }) => {
     }
 
     try {
+      // Load the logo image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const imagePromise = new Promise((resolve, reject) => {
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = '/WhatsApp_Image_2025-12-24_at_7.19.38_PM-removebg-preview.png';
+      });
+      await imagePromise;
+
       // Initialize for 80mm width, dynamic height (start with long height, will crop if needed or just let it be long)
       // Standard thermal paper is 80mm width. Height depends on content.
       // We'll use a long page height to avoid page breaks for most receipts.
@@ -434,18 +444,24 @@ const Invoice = ({ initialCustomerId }) => {
       const centerX = pageWidth / 2;
       let yPos = 10;
 
-      // Header
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Haji Nawab Din Optical Service', centerX, yPos, { align: 'center' });
-      yPos += 5;
+      // Header - Add logo image
+      const imgWidth = 50; // mm
+      const imgHeight = (img.height * imgWidth) / img.width; // Maintain aspect ratio
+      doc.addImage(img, 'PNG', centerX - imgWidth / 2, yPos, imgWidth, imgHeight);
+      yPos += imgHeight + 3;
 
       doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Prop: Adeel Feroz', centerX, yPos, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.text('Address', centerX, yPos, { align: 'center' });
       yPos += 4;
-      doc.text('0321-7940339, 0321-6643839', centerX, yPos, { align: 'center' });
+      doc.text('Main Susan Road, Faisalabad', centerX, yPos, { align: 'center' });
       yPos += 4;
+      doc.text('Phone Numbers', centerX, yPos, { align: 'center' });
+      yPos += 4;
+      doc.text('0321-7940339', centerX, yPos, { align: 'center' });
+      yPos += 3;
+      doc.text('0321-6643839', centerX, yPos, { align: 'center' });
+      yPos += 3;
       doc.text('041-8725875', centerX, yPos, { align: 'center' });
       yPos += 6;
 
@@ -463,7 +479,7 @@ const Invoice = ({ initialCustomerId }) => {
 
       // Invoice Details
       doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('helvetica', 'bold');
 
       const invoiceNo = String(customerData.customerId || (customerData._id ? customerData._id.slice(-8).toUpperCase() : 'N/A'));
       doc.text(`Inv No: ${invoiceNo}`, margin, yPos);
@@ -501,7 +517,7 @@ const Invoice = ({ initialCustomerId }) => {
       yPos += 4;
 
       // Products
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('helvetica', 'bold');
       if (customerData.products && customerData.products.length > 0) {
         customerData.products.forEach((product) => {
           const category = String(product.category || '-');
@@ -552,7 +568,7 @@ const Invoice = ({ initialCustomerId }) => {
         doc.text('Prescription:', margin, yPos);
         yPos += 4;
 
-        doc.setFont('helvetica', 'normal');
+        doc.setFont('helvetica', 'bold');
         doc.setFontSize(7);
 
         if (customerData.prescription?.right) {
@@ -576,7 +592,9 @@ const Invoice = ({ initialCustomerId }) => {
       yPos += 5;
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.text('Thank you for your business!', centerX, yPos, { align: 'center' });
+      doc.text('فٹنگ و مرمت کے دوران فریم جل جانے یا شیشہ ٹوٹ جانے کی فرم ذمہ دار نہ ہوگی', centerX, yPos, { align: 'center' });
+      yPos += 5;
+      doc.text('15 یوم کے بعد عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی', centerX, yPos, { align: 'center' });
       yPos += 5;
 
       doc.setFontSize(7);
@@ -597,7 +615,7 @@ const Invoice = ({ initialCustomerId }) => {
     }
   };
 
-  const handleSaveSelectedPDFs = () => {
+  const handleSaveSelectedPDFs = async () => {
     if (selectedInvoiceIds.size === 0) {
       setError('Please select at least one invoice to save as PDF.');
       setTimeout(() => setError(''), 5000);
@@ -612,41 +630,58 @@ const Invoice = ({ initialCustomerId }) => {
       return customerId && selectedInvoiceIds.has(customerId);
     });
 
-    // Create a single PDF with all selected invoices
-    // Initialize for 80mm width
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: [80, 297]
-    });
+    try {
+      // Load the logo image once
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const imagePromise = new Promise((resolve, reject) => {
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = '/WhatsApp_Image_2025-12-24_at_7.19.38_PM-removebg-preview.png';
+      });
+      await imagePromise;
 
-    let isFirstPage = true;
+      // Create a single PDF with all selected invoices
+      // Initialize for 80mm width
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [80, 297]
+      });
 
-    selectedInvoices.forEach((customer, index) => {
-      if (!isFirstPage) {
-        doc.addPage([80, 297]);
-      }
-      isFirstPage = false;
+      let isFirstPage = true;
 
-      // Margins
-      const margin = 4;
-      const pageWidth = 80;
-      const contentWidth = pageWidth - (margin * 2);
-      const centerX = pageWidth / 2;
-      let yPos = 10;
+      selectedInvoices.forEach((customer, index) => {
+        if (!isFirstPage) {
+          doc.addPage([80, 297]);
+        }
+        isFirstPage = false;
 
-      // Header
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Haji Nawab Din Optical Service', centerX, yPos, { align: 'center' });
-      yPos += 5;
+        // Margins
+        const margin = 4;
+        const pageWidth = 80;
+        const contentWidth = pageWidth - (margin * 2);
+        const centerX = pageWidth / 2;
+        let yPos = 10;
 
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Prop: Adeel Feroz', centerX, yPos, { align: 'center' });
+        // Header - Add logo image
+        const imgWidth = 50; // mm
+        const imgHeight = (img.height * imgWidth) / img.width; // Maintain aspect ratio
+        doc.addImage(img, 'PNG', centerX - imgWidth / 2, yPos, imgWidth, imgHeight);
+        yPos += imgHeight + 3;
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+      doc.text('Address', centerX, yPos, { align: 'center' });
       yPos += 4;
-      doc.text('0321-7940339, 0321-6643839', centerX, yPos, { align: 'center' });
+      doc.text('Main Susan Road, Faisalabad', centerX, yPos, { align: 'center' });
       yPos += 4;
+      doc.text('Phone Numbers', centerX, yPos, { align: 'center' });
+      yPos += 4;
+      doc.text('0321-7940339', centerX, yPos, { align: 'center' });
+      yPos += 3;
+      doc.text('0321-6643839', centerX, yPos, { align: 'center' });
+      yPos += 3;
       doc.text('041-8725875', centerX, yPos, { align: 'center' });
       yPos += 6;
 
@@ -664,7 +699,7 @@ const Invoice = ({ initialCustomerId }) => {
 
       // Invoice Details
       doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('helvetica', 'bold');
 
       const invoiceNo = String(customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A'));
       doc.text(`Inv No: ${invoiceNo}`, margin, yPos);
@@ -702,7 +737,7 @@ const Invoice = ({ initialCustomerId }) => {
       yPos += 4;
 
       // Products
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('helvetica', 'bold');
       if (customer.products && customer.products.length > 0) {
         customer.products.forEach((product) => {
           const category = String(product.category || '-');
@@ -753,7 +788,7 @@ const Invoice = ({ initialCustomerId }) => {
         doc.text('Prescription:', margin, yPos);
         yPos += 4;
 
-        doc.setFont('helvetica', 'normal');
+        doc.setFont('helvetica', 'bold');
         doc.setFontSize(7);
 
         if (customer.prescription?.right) {
@@ -777,18 +812,20 @@ const Invoice = ({ initialCustomerId }) => {
       yPos += 5;
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.text('Thank you for your business!', centerX, yPos, { align: 'center' });
+      doc.text('فٹنگ و مرمت کے دوران فریم جل جانے یا شیشہ ٹوٹ جانے کی فرم ذمہ دار نہ ہوگی', centerX, yPos, { align: 'center' });
       yPos += 5;
-
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.text('No return, No exchange', centerX, yPos, { align: 'center' });
+      doc.text('15 یوم کے بعد عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی', centerX, yPos, { align: 'center' });
     });
 
     // Save PDF
     const dateStr = new Date().toISOString().split('T')[0];
     const fileName = `Selected_Invoices_${dateStr}.pdf`;
     doc.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      setError('Failed to generate PDF. Please try again.');
+      setTimeout(() => setError(''), 5000);
+    }
   };
 
   // Filter customers by date and phone number (only after search)
@@ -1286,23 +1323,36 @@ const Invoice = ({ initialCustomerId }) => {
                   }}
                 >
                 {/* Header */}
-                <div className="text-center mb-6 border-b-2 border-gray-400 pb-3">
-                  <h1 className="text-2xl font-bold text-gray-800 mb-1">Haji Nawab Din Optical Service</h1>
-                  <p className="text-sm text-gray-600 font-semibold">Invoice</p>
+                <div className="text-center mb-6 border-b-2 border-black pb-3">
+                  <img 
+                    src="/WhatsApp_Image_2025-12-24_at_7.19.38_PM-removebg-preview.png" 
+                    alt="Haji Nawab Din Optical Service" 
+                    className="mx-auto mb-2"
+                    style={{ maxWidth: '200px', height: 'auto' }}
+                  />
+                  <div className="text-xs text-black font-bold space-y-1">
+                    <p className="font-bold">Address</p>
+                    <p>Main Susan Road, Faisalabad</p>
+                    <p className="font-bold mt-2">Phone Numbers</p>
+                    <p>0321-7940339</p>
+                    <p>0321-6643839</p>
+                    <p>041-8725875</p>
+                  </div>
+                  <p className="text-sm text-black font-bold mt-3">Invoice</p>
                 </div>
 
                 {/* Invoice Details */}
                 <div className="flex flex-col gap-2 mb-4">
                   <div>
-                    <h3 className="font-bold text-gray-700 mb-1 text-xs">Invoice Details</h3>
-                    <p className="text-xs text-gray-600 font-bold">Invoice No: <span className="font-bold">{customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A')}</span></p>
-                    <p className="text-xs text-gray-600 font-bold">Date: <span className="font-bold">{formatDateTime(customer.createdAt)}</span></p>
+                    <h3 className="font-bold text-black mb-1 text-xs">Invoice Details</h3>
+                    <p className="text-xs text-black font-bold">Invoice No: <span className="font-bold">{customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A')}</span></p>
+                    <p className="text-xs text-black font-bold">Date: <span className="font-bold">{formatDateTime(customer.createdAt)}</span></p>
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-700 mb-1 text-xs">Bill To</h3>
-                    <p className="text-xs text-gray-600 font-bold">{customer.customerName || 'N/A'}</p>
+                    <h3 className="font-bold text-black mb-1 text-xs">Bill To</h3>
+                    <p className="text-xs text-black font-bold">{customer.customerName || 'N/A'}</p>
                     {customer.familyMember && customer.familyMember.trim() !== '' && (
-                      <p className="text-xs text-gray-600 font-bold">
+                      <p className="text-xs text-black font-bold">
                         FM: <span className="font-bold">
                           {customer.familyMember}
                           {customer.familyMemberRelation && customer.familyMemberRelation.trim() !== '' && (
@@ -1311,39 +1361,39 @@ const Invoice = ({ initialCustomerId }) => {
                         </span>
                       </p>
                     )}
-                    <p className="text-xs text-gray-600 font-bold">Ph: {customer.phoneNumber || 'N/A'}</p>
+                    <p className="text-xs text-black font-bold">Ph: {customer.phoneNumber || 'N/A'}</p>
                     {customer.doctorName && (
-                      <p className="text-xs text-gray-600 font-bold">Dr: {customer.doctorName}</p>
+                      <p className="text-xs text-black font-bold">Dr: {customer.doctorName}</p>
                     )}
                   </div>
                 </div>
 
                 {/* Products Table */}
                 <div className="mb-4">
-                  <table className="w-full border-collapse border border-gray-400 text-xs">
+                  <table className="w-full border-collapse border border-black text-xs">
                     <thead>
-                      <tr className="bg-gray-800 text-white">
-                        <th className="border border-gray-400 px-2 py-1 text-left font-bold">Category</th>
-                        <th className="border border-gray-400 px-2 py-1 text-left font-bold">Description</th>
-                        <th className="border border-gray-400 px-2 py-1 text-center font-bold">Qty</th>
-                        <th className="border border-gray-400 px-2 py-1 text-right font-bold">Price</th>
-                        <th className="border border-gray-400 px-2 py-1 text-right font-bold">Total</th>
+                      <tr className="bg-white text-black">
+                        <th className="border border-black px-2 py-1 text-left font-bold text-black">Category</th>
+                        <th className="border border-black px-2 py-1 text-left font-bold text-black">Description</th>
+                        <th className="border border-black px-2 py-1 text-center font-bold text-black">Qty</th>
+                        <th className="border border-black px-2 py-1 text-right font-bold text-black">Price</th>
+                        <th className="border border-black px-2 py-1 text-right font-bold text-black">Total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {customer.products && customer.products.length > 0 ? (
                         customer.products.map((product, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50">
-                            <td className="border border-gray-400 px-2 py-1 font-bold">{product.category || '-'}</td>
-                            <td className="border border-gray-400 px-2 py-1 font-bold">{product.description || '-'}</td>
-                            <td className="border border-gray-400 px-2 py-1 text-center font-bold">{product.qty || 0}</td>
-                            <td className="border border-gray-400 px-2 py-1 text-right font-bold">{formatCurrency(product.price)}</td>
-                            <td className="border border-gray-400 px-2 py-1 text-right font-bold">{formatCurrency(product.total)}</td>
+                          <tr key={idx}>
+                            <td className="border border-black px-2 py-1 font-bold text-black">{product.category || '-'}</td>
+                            <td className="border border-black px-2 py-1 font-bold text-black">{product.description || '-'}</td>
+                            <td className="border border-black px-2 py-1 text-center font-bold text-black">{product.qty || 0}</td>
+                            <td className="border border-black px-2 py-1 text-right font-bold text-black">{formatCurrency(product.price)}</td>
+                            <td className="border border-black px-2 py-1 text-right font-bold text-black">{formatCurrency(product.total)}</td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="5" className="border border-gray-400 px-2 py-1 text-center text-gray-500 font-bold">
+                          <td colSpan="5" className="border border-black px-2 py-1 text-center text-black font-bold">
                             No products found
                           </td>
                         </tr>
@@ -1357,19 +1407,19 @@ const Invoice = ({ initialCustomerId }) => {
                   <div>
                     {customer.hasPrescription && (
                       <div className="mb-2">
-                        <h3 className="font-bold text-gray-700 mb-1 text-xs">Prescription</h3>
+                        <h3 className="font-bold text-black mb-1 text-xs">Prescription</h3>
                         {customer.prescription?.right && (
-                          <p className="text-xs text-gray-600 font-bold">
+                          <p className="text-xs text-black font-bold">
                             R: SPH {customer.prescription.right.sph || '-'} / CYL {customer.prescription.right.cyl || '-'} / AXIS {customer.prescription.right.axis || '-'}
                           </p>
                         )}
                         {customer.prescription?.left && (
-                          <p className="text-xs text-gray-600 font-bold">
+                          <p className="text-xs text-black font-bold">
                             L: SPH {customer.prescription.left.sph || '-'} / CYL {customer.prescription.left.cyl || '-'} / AXIS {customer.prescription.left.axis || '-'}
                           </p>
                         )}
                         {(customer.prescription?.ipd || customer.prescription?.add) && (
-                          <p className="text-xs text-gray-600 font-bold">
+                          <p className="text-xs text-black font-bold">
                             {customer.prescription.ipd && `IPD: ${customer.prescription.ipd} `}
                             {customer.prescription.add && `ADD: ${customer.prescription.add}`}
                           </p>
@@ -1378,34 +1428,34 @@ const Invoice = ({ initialCustomerId }) => {
                     )}
                     {customer.notes && (
                       <div>
-                        <h3 className="font-bold text-gray-700 mb-1 text-xs">Notes</h3>
-                        <p className="text-xs text-gray-600 font-bold">{customer.notes}</p>
+                        <h3 className="font-bold text-black mb-1 text-xs">Notes</h3>
+                        <p className="text-xs text-black font-bold">{customer.notes}</p>
                       </div>
                     )}
                   </div>
-                  <div className="bg-gray-100 p-2 rounded border border-gray-300">
-                    <h3 className="font-bold text-gray-700 mb-1 text-xs">Payment</h3>
+                  <div className="bg-white p-2 rounded border border-black">
+                    <h3 className="font-bold text-black mb-1 text-xs">Payment</h3>
                     <div className="space-y-1">
                       <div className="flex justify-between">
-                        <span className="text-xs text-gray-600 font-bold">Total:</span>
-                        <span className="text-xs font-bold">{formatCurrency(customer.payment?.amount || calculateTotal(customer.products))}</span>
+                        <span className="text-xs text-black font-bold">Total:</span>
+                        <span className="text-xs font-bold text-black">{formatCurrency(customer.payment?.amount || calculateTotal(customer.products))}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-xs text-gray-600 font-bold">Paid:</span>
-                        <span className="text-xs font-bold text-green-700">{formatCurrency(customer.payment?.paid || 0)}</span>
+                        <span className="text-xs text-black font-bold">Paid:</span>
+                        <span className="text-xs font-bold text-black">{formatCurrency(customer.payment?.paid || 0)}</span>
                       </div>
-                      <div className="flex justify-between border-t border-gray-400 pt-1 mt-1">
-                        <span className="text-xs font-bold text-gray-700">Rem:</span>
-                        <span className="text-xs font-bold text-red-700">{formatCurrency(customer.payment?.remaining || 0)}</span>
+                      <div className="flex justify-between border-t border-black pt-1 mt-1">
+                        <span className="text-xs font-bold text-black">Rem:</span>
+                        <span className="text-xs font-bold text-black">{formatCurrency(customer.payment?.remaining || 0)}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Footer - Last Element */}
-                <div className="text-center border-t-2 border-gray-400 invoice-footer" style={{ paddingTop: '4px', marginTop: '4px', marginBottom: 0, paddingBottom: 0 }}>
-                  <p className="text-xs text-gray-600 font-bold" style={{ marginBottom: '1px', marginTop: 0 }}>فٹنگ و مرمت کے دوران فریم جل جانے یا شیشہ ٹوٹ جانے کی فرم ذمہ دار نہ ہوگی</p>
-                  <p className="text-xs text-gray-600 font-bold" style={{ marginTop: '1px', marginBottom: 0, paddingBottom: 0 }}>15 یوم کے بعد عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی</p>
+                <div className="text-center border-t-2 border-black invoice-footer" style={{ paddingTop: '4px', marginTop: '4px', marginBottom: 0, paddingBottom: 0 }}>
+                  <p className="text-xs text-black font-bold" style={{ marginBottom: '1px', marginTop: 0 }}>فٹنگ و مرمت کے دوران فریم جل جانے یا شیشہ ٹوٹ جانے کی فرم ذمہ دار نہ ہوگی</p>
+                  <p className="text-xs text-black font-bold" style={{ marginTop: '1px', marginBottom: 0, paddingBottom: 0 }}>15 یوم کے بعد عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی</p>
                 </div>
               </div>
               );

@@ -65,7 +65,7 @@
     height: auto !important;
   }
   
-  /* Make all text elements bold in invoice */
+  /* Make all text elements bold and black in invoice */
   .invoice-content p,
   .invoice-content span,
   .invoice-content td,
@@ -75,6 +75,19 @@
   .invoice-content h3,
   .invoice-content div {
     font-weight: bold !important;
+    color: black !important;
+  }
+  
+  /* Force all text to be black in invoice */
+  .invoice-content,
+  .invoice-content * {
+    color: black !important;
+  }
+  
+  /* Table headers should also be black */
+  .invoice-content thead th {
+    color: black !important;
+    background-color: white !important;
   }
 
   .invoice-content h2,

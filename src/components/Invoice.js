@@ -32,10 +32,10 @@ const Invoice = ({ initialCustomerId }) => {
       console.log('========== PRINT EFFECT TRIGGERED ==========');
       console.log('Print data count:', dataToUse?.length);
       console.log('Print data IDs:', dataToUse?.map(c => c._id || c.id));
-      
+
       // Reset the flag
       setShouldPrint(false);
-      
+
       // Use multiple animation frames to ensure DOM is fully updated
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -43,12 +43,12 @@ const Invoice = ({ initialCustomerId }) => {
             console.log('========== EXECUTING WINDOW.PRINT() ==========');
             console.log('Final print data ref count:', printDataRef.current?.length);
             console.log('Final print data state count:', printData?.length);
-            
+
             // Force one final check before printing
             const finalData = printDataRef.current || printData;
             if (finalData && finalData.length > 0) {
               console.log('CONFIRMED: About to print', finalData.length, 'invoices');
-              
+
               // Check if print container actually has content
               const printContainer = document.querySelector('.print-container');
               if (printContainer) {
@@ -58,7 +58,7 @@ const Invoice = ({ initialCustomerId }) => {
               } else {
                 console.error('ERROR: Print container not found in DOM!');
               }
-              
+
               window.print();
             } else {
               console.error('ERROR: No data available at print time!');
@@ -223,6 +223,27 @@ const Invoice = ({ initialCustomerId }) => {
     }
   };
 
+  // Helper function to generate alphanumeric invoice number
+  const generateAlphanumericInvoiceNo = (customerId, customerDbId) => {
+    if (customerId) {
+      // If customerId exists, ensure it's alphanumeric
+      const alphanumeric = String(customerId).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      return alphanumeric || 'N/A';
+    }
+    if (customerDbId) {
+      // Convert MongoDB/Firestore ID to alphanumeric
+      // Remove any non-alphanumeric characters and take first 8 characters
+      const idStr = String(customerDbId);
+      const alphanumeric = idStr.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (alphanumeric.length >= 8) {
+        return alphanumeric.slice(0, 8);
+      }
+      // If shorter, pad with zeros
+      return alphanumeric.padEnd(8, '0');
+    }
+    return 'N/A';
+  };
+
   // Helper function to parse Firestore timestamps
   const parseDate = (dateValue) => {
     if (!dateValue) return null;
@@ -332,13 +353,13 @@ const Invoice = ({ initialCustomerId }) => {
       console.log('Checking customer:', customerId, '| Name:', c.customerName, '| isSelected:', isSelected);
       return customerId && isSelected;
     });
-    
+
     console.log('========== FILTER RESULTS ==========');
     console.log('Selected invoices count after filter:', selectedInvoices.length);
     console.log('Expected count:', selectedInvoiceIds.size);
     console.log('Selected invoice IDs:', selectedInvoices.map(c => c._id || c.id));
     console.log('Selected invoice names:', selectedInvoices.map(c => c.customerName));
-    
+
     if (selectedInvoices.length === 0) {
       // If no invoices found, try alternative approach - rebuild from selectedInvoiceIds
       console.warn('No invoices found with direct filter. Trying alternative approach...');
@@ -350,15 +371,15 @@ const Invoice = ({ initialCustomerId }) => {
           alternativeInvoices.push(found);
         }
       });
-      
+
       console.log('Alternative approach found:', alternativeInvoices.length, 'invoices');
-      
+
       if (alternativeInvoices.length === 0) {
         setError('No invoices found matching the selected IDs. Please try selecting again.');
         setTimeout(() => setError(''), 5000);
         return;
       }
-      
+
       // Use alternative approach results
       // Create a NEW array instance to force React to detect the change
       const invoicesToPrint = [...alternativeInvoices];
@@ -594,7 +615,7 @@ const Invoice = ({ initialCustomerId }) => {
       doc.setFont('helvetica', 'bold');
       doc.text('فٹنگ و مرمت کے دوران فریم جل جانے یا شیشہ ٹوٹ جانے کی فرم ذمہ دار نہ ہوگی', centerX, yPos, { align: 'center' });
       yPos += 5;
-      doc.text('15 یوم کے بعد عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی', centerX, yPos, { align: 'center' });
+      doc.text("عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی، پندرہ یوم کے بعد۔", centerX, yPos, { align: 'center' }); // Updated with Urdu numerals
       yPos += 5;
 
       doc.setFontSize(7);
@@ -672,155 +693,155 @@ const Invoice = ({ initialCustomerId }) => {
 
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
-      doc.text('Address', centerX, yPos, { align: 'center' });
-      yPos += 4;
-      doc.text('Main Susan Road, Faisalabad', centerX, yPos, { align: 'center' });
-      yPos += 4;
-      doc.text('Phone Numbers', centerX, yPos, { align: 'center' });
-      yPos += 4;
-      doc.text('0321-7940339', centerX, yPos, { align: 'center' });
-      yPos += 3;
-      doc.text('0321-6643839', centerX, yPos, { align: 'center' });
-      yPos += 3;
-      doc.text('041-8725875', centerX, yPos, { align: 'center' });
-      yPos += 6;
-
-      // Invoice Title
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text('INVOICE', centerX, yPos, { align: 'center' });
-      yPos += 2;
-
-      // Divider
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.2);
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 5;
-
-      // Invoice Details
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-
-      const invoiceNo = String(customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A'));
-      doc.text(`Inv No: ${invoiceNo}`, margin, yPos);
-      yPos += 4;
-
-      const dateStr = formatDateTime(customer.createdAt);
-      doc.text(`Date: ${dateStr}`, margin, yPos);
-      yPos += 4;
-
-      doc.text(`Customer: ${customer.customerName || 'N/A'}`, margin, yPos);
-      yPos += 4;
-
-      if (customer.phoneNumber) {
-        doc.text(`Phone: ${customer.phoneNumber}`, margin, yPos);
+        doc.text('Address', centerX, yPos, { align: 'center' });
         yPos += 4;
-      }
-
-      if (customer.doctorName) {
-        doc.text(`Doctor: ${customer.doctorName}`, margin, yPos);
+        doc.text('Main Susan Road, Faisalabad', centerX, yPos, { align: 'center' });
         yPos += 4;
-      }
+        doc.text('Phone Numbers', centerX, yPos, { align: 'center' });
+        yPos += 4;
+        doc.text('0321-7940339', centerX, yPos, { align: 'center' });
+        yPos += 3;
+        doc.text('0321-6643839', centerX, yPos, { align: 'center' });
+        yPos += 3;
+        doc.text('041-8725875', centerX, yPos, { align: 'center' });
+        yPos += 6;
 
-      yPos += 2;
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 5;
+        // Invoice Title
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('INVOICE', centerX, yPos, { align: 'center' });
+        yPos += 2;
 
-      // Products Table Header
-      doc.setFont('helvetica', 'bold');
-      doc.text('Item', margin, yPos);
-      doc.text('Qty', 45, yPos, { align: 'right' });
-      doc.text('Price', 60, yPos, { align: 'right' });
-      doc.text('Total', contentWidth + margin, yPos, { align: 'right' });
-      yPos += 2;
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 4;
+        // Divider
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.2);
+        doc.line(margin, yPos, pageWidth - margin, yPos);
+        yPos += 5;
 
-      // Products
-      doc.setFont('helvetica', 'bold');
-      if (customer.products && customer.products.length > 0) {
-        customer.products.forEach((product) => {
-          const category = String(product.category || '-');
-          const description = String(product.description || '-');
-          const itemText = `${category} - ${description}`;
-
-          // Split text to fit width
-          const splitText = doc.splitTextToSize(itemText, 35);
-          doc.text(splitText, margin, yPos);
-
-          const qty = String(product.qty || 0);
-          const price = String(Math.round(parseFloat(product.price || 0)));
-          const total = String(Math.round(parseFloat(product.total || 0)));
-
-          doc.text(qty, 45, yPos, { align: 'right' });
-          doc.text(price, 60, yPos, { align: 'right' });
-          doc.text(total, contentWidth + margin, yPos, { align: 'right' });
-
-          yPos += (splitText.length * 4) + 2;
-        });
-      }
-
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 5;
-
-      // Totals
-      const totalAmount = Math.round(parseFloat(customer.payment?.amount || calculateTotal(customer.products)));
-      const paidAmount = Math.round(parseFloat(customer.payment?.paid || 0));
-      const remainingAmount = Math.round(parseFloat(customer.payment?.remaining || 0));
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('Total:', 40, yPos, { align: 'right' });
-      doc.text(String(totalAmount), contentWidth + margin, yPos, { align: 'right' });
-      yPos += 5;
-
-      doc.text('Paid:', 40, yPos, { align: 'right' });
-      doc.text(String(paidAmount), contentWidth + margin, yPos, { align: 'right' });
-      yPos += 5;
-
-      doc.text('Remaining:', 40, yPos, { align: 'right' });
-      doc.text(String(remainingAmount), contentWidth + margin, yPos, { align: 'right' });
-      yPos += 8;
-
-      // Prescription (Compact)
-      if (customer.hasPrescription) {
+        // Invoice Details
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
-        doc.text('Prescription:', margin, yPos);
+
+        const invoiceNo = String(customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A'));
+        doc.text(`Inv No: ${invoiceNo}`, margin, yPos);
         yPos += 4;
 
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7);
+        const dateStr = formatDateTime(customer.createdAt);
+        doc.text(`Date: ${dateStr}`, margin, yPos);
+        yPos += 4;
 
-        if (customer.prescription?.right) {
-          const r = customer.prescription.right;
-          doc.text(`R: SPH ${r.sph} CYL ${r.cyl} AXIS ${r.axis}`, margin, yPos);
-          yPos += 3;
+        doc.text(`Customer: ${customer.customerName || 'N/A'}`, margin, yPos);
+        yPos += 4;
+
+        if (customer.phoneNumber) {
+          doc.text(`Phone: ${customer.phoneNumber}`, margin, yPos);
+          yPos += 4;
         }
-        if (customer.prescription?.left) {
-          const l = customer.prescription.left;
-          doc.text(`L: SPH ${l.sph} CYL ${l.cyl} AXIS ${l.axis}`, margin, yPos);
-          yPos += 3;
+
+        if (customer.doctorName) {
+          doc.text(`Doctor: ${customer.doctorName}`, margin, yPos);
+          yPos += 4;
         }
-        if (customer.prescription?.ipd || customer.prescription?.add) {
-          doc.text(`IPD: ${customer.prescription.ipd || '-'}  ADD: ${customer.prescription.add || '-'}`, margin, yPos);
-          yPos += 5;
-        }
+
         yPos += 2;
-      }
+        doc.line(margin, yPos, pageWidth - margin, yPos);
+        yPos += 5;
 
-      // Footer
-      yPos += 5;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text('فٹنگ و مرمت کے دوران فریم جل جانے یا شیشہ ٹوٹ جانے کی فرم ذمہ دار نہ ہوگی', centerX, yPos, { align: 'center' });
-      yPos += 5;
-      doc.text('15 یوم کے بعد عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی', centerX, yPos, { align: 'center' });
-    });
+        // Products Table Header
+        doc.setFont('helvetica', 'bold');
+        doc.text('Item', margin, yPos);
+        doc.text('Qty', 45, yPos, { align: 'right' });
+        doc.text('Price', 60, yPos, { align: 'right' });
+        doc.text('Total', contentWidth + margin, yPos, { align: 'right' });
+        yPos += 2;
+        doc.line(margin, yPos, pageWidth - margin, yPos);
+        yPos += 4;
 
-    // Save PDF
-    const dateStr = new Date().toISOString().split('T')[0];
-    const fileName = `Selected_Invoices_${dateStr}.pdf`;
-    doc.save(fileName);
+        // Products
+        doc.setFont('helvetica', 'bold');
+        if (customer.products && customer.products.length > 0) {
+          customer.products.forEach((product) => {
+            const category = String(product.category || '-');
+            const description = String(product.description || '-');
+            const itemText = `${category} - ${description}`;
+
+            // Split text to fit width
+            const splitText = doc.splitTextToSize(itemText, 35);
+            doc.text(splitText, margin, yPos);
+
+            const qty = String(product.qty || 0);
+            const price = String(Math.round(parseFloat(product.price || 0)));
+            const total = String(Math.round(parseFloat(product.total || 0)));
+
+            doc.text(qty, 45, yPos, { align: 'right' });
+            doc.text(price, 60, yPos, { align: 'right' });
+            doc.text(total, contentWidth + margin, yPos, { align: 'right' });
+
+            yPos += (splitText.length * 4) + 2;
+          });
+        }
+
+        doc.line(margin, yPos, pageWidth - margin, yPos);
+        yPos += 5;
+
+        // Totals
+        const totalAmount = Math.round(parseFloat(customer.payment?.amount || calculateTotal(customer.products)));
+        const paidAmount = Math.round(parseFloat(customer.payment?.paid || 0));
+        const remainingAmount = Math.round(parseFloat(customer.payment?.remaining || 0));
+
+        doc.setFont('helvetica', 'bold');
+        doc.text('Total:', 40, yPos, { align: 'right' });
+        doc.text(String(totalAmount), contentWidth + margin, yPos, { align: 'right' });
+        yPos += 5;
+
+        doc.text('Paid:', 40, yPos, { align: 'right' });
+        doc.text(String(paidAmount), contentWidth + margin, yPos, { align: 'right' });
+        yPos += 5;
+
+        doc.text('Remaining:', 40, yPos, { align: 'right' });
+        doc.text(String(remainingAmount), contentWidth + margin, yPos, { align: 'right' });
+        yPos += 8;
+
+        // Prescription (Compact)
+        if (customer.hasPrescription) {
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Prescription:', margin, yPos);
+          yPos += 4;
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7);
+
+          if (customer.prescription?.right) {
+            const r = customer.prescription.right;
+            doc.text(`R: SPH ${r.sph} CYL ${r.cyl} AXIS ${r.axis}`, margin, yPos);
+            yPos += 3;
+          }
+          if (customer.prescription?.left) {
+            const l = customer.prescription.left;
+            doc.text(`L: SPH ${l.sph} CYL ${l.cyl} AXIS ${l.axis}`, margin, yPos);
+            yPos += 3;
+          }
+          if (customer.prescription?.ipd || customer.prescription?.add) {
+            doc.text(`IPD: ${customer.prescription.ipd || '-'}  ADD: ${customer.prescription.add || '-'}`, margin, yPos);
+            yPos += 5;
+          }
+          yPos += 2;
+        }
+
+        // Footer
+        yPos += 5;
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text('فٹنگ و مرمت کے دوران فریم جل جانے یا شیشہ ٹوٹ جانے کی فرم ذمہ دار نہ ہوگی', centerX, yPos, { align: 'center' });
+        yPos += 5;
+        doc.text('یوم کے بعد عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی ۱۵', centerX, yPos, { align: 'center' });
+      });
+
+      // Save PDF
+      const dateStr = new Date().toISOString().split('T')[0];
+      const fileName = `Selected_Invoices_${dateStr}.pdf`;
+      doc.save(fileName);
     } catch (error) {
       console.error('Error generating PDF:', error);
       setError('Failed to generate PDF. Please try again.');
@@ -1259,76 +1280,75 @@ const Invoice = ({ initialCustomerId }) => {
         }}
       >
         {(() => {
-            // ALWAYS use ref first since it's set immediately, then fallback to state
-            let invoicesToPrint = printDataRef.current || printData;
+          // ALWAYS use ref first since it's set immediately, then fallback to state
+          let invoicesToPrint = printDataRef.current || printData;
 
-            console.log('========== PRINT VIEW RENDERING ==========');
-            console.log('printDataRef.current count:', printDataRef.current?.length);
-            console.log('printData state count:', printData?.length);
-            console.log('invoicesToPrint count (selected):', invoicesToPrint?.length);
-            console.log('invoicesToPrint IDs:', invoicesToPrint?.map(c => c._id || c.id));
+          console.log('========== PRINT VIEW RENDERING ==========');
+          console.log('printDataRef.current count:', printDataRef.current?.length);
+          console.log('printData state count:', printData?.length);
+          console.log('invoicesToPrint count (selected):', invoicesToPrint?.length);
+          console.log('invoicesToPrint IDs:', invoicesToPrint?.map(c => c._id || c.id));
 
-            if (!invoicesToPrint || invoicesToPrint.length === 0) {
-              // Fallback logic if printData is not set
-              console.log('No print data, using fallback logic');
-              if (selectedInvoiceIds.size > 0) {
-                console.log('Using selectedInvoiceIds fallback, size:', selectedInvoiceIds.size);
-                invoicesToPrint = customers.filter(c => {
-                  if (!c) return false;
-                  const customerId = c._id || c.id;
-                  return customerId && selectedInvoiceIds.has(customerId);
-                });
-              } else if (selectedCustomer) {
-                console.log('Using selectedCustomer fallback');
-                invoicesToPrint = [selectedCustomer];
-              } else if (selectedCustomers.length > 0) {
-                console.log('Using selectedCustomers fallback, count:', selectedCustomers.length);
-                invoicesToPrint = selectedCustomers;
-              } else {
-                invoicesToPrint = [];
-              }
+          if (!invoicesToPrint || invoicesToPrint.length === 0) {
+            // Fallback logic if printData is not set
+            console.log('No print data, using fallback logic');
+            if (selectedInvoiceIds.size > 0) {
+              console.log('Using selectedInvoiceIds fallback, size:', selectedInvoiceIds.size);
+              invoicesToPrint = customers.filter(c => {
+                if (!c) return false;
+                const customerId = c._id || c.id;
+                return customerId && selectedInvoiceIds.has(customerId);
+              });
+            } else if (selectedCustomer) {
+              console.log('Using selectedCustomer fallback');
+              invoicesToPrint = [selectedCustomer];
+            } else if (selectedCustomers.length > 0) {
+              console.log('Using selectedCustomers fallback, count:', selectedCustomers.length);
+              invoicesToPrint = selectedCustomers;
+            } else {
+              invoicesToPrint = [];
             }
+          }
 
-            console.log('Final invoicesToPrint count:', invoicesToPrint?.length);
+          console.log('Final invoicesToPrint count:', invoicesToPrint?.length);
 
-            // Filter out any null/undefined customers and ensure they have required data
-            invoicesToPrint = invoicesToPrint.filter(c => {
-              if (!c || c === null || c === undefined) return false;
-              // Ensure customer has at least an ID
-              return (c._id || c.id);
-            });
+          // Filter out any null/undefined customers and ensure they have required data
+          invoicesToPrint = invoicesToPrint.filter(c => {
+            if (!c || c === null || c === undefined) return false;
+            // Ensure customer has at least an ID
+            return (c._id || c.id);
+          });
 
-            // Return null if no invoices to print
-            if (invoicesToPrint.length === 0) {
-              console.log('No invoices to print, returning null');
-              return null;
-            }
+          // Return null if no invoices to print
+          if (invoicesToPrint.length === 0) {
+            console.log('No invoices to print, returning null');
+            return null;
+          }
 
-            console.log('Rendering', invoicesToPrint.length, 'invoices for printing');
-            return invoicesToPrint.map((customer, index) => {
-              const shouldBreakPage = index < invoicesToPrint.length - 1;
-              const isLastInvoice = index === invoicesToPrint.length - 1;
-              return (
-                <div
-                  key={customer._id || customer.id}
-                  className={`invoice-content ${isLastInvoice ? 'invoice-content-last' : ''}`}
-                  style={{ 
-                    pageBreakAfter: shouldBreakPage ? 'always' : 'avoid',
-                    pageBreakInside: 'avoid',
-                    pageBreakBefore: 'avoid',
-                    marginBottom: 0,
-                    paddingBottom: 0,
-                    height: 'auto',
-                    minHeight: 0
-                  }}
-                >
+          console.log('Rendering', invoicesToPrint.length, 'invoices for printing');
+          return invoicesToPrint.map((customer, index) => {
+            const shouldBreakPage = index < invoicesToPrint.length - 1;
+            const isLastInvoice = index === invoicesToPrint.length - 1;
+            return (
+              <div
+                key={customer._id || customer.id}
+                className={`invoice-content ${isLastInvoice ? 'invoice-content-last' : ''}`}
+                style={{
+                  pageBreakAfter: shouldBreakPage ? 'always' : 'avoid',
+                  pageBreakInside: 'avoid',
+                  pageBreakBefore: 'avoid',
+                  marginBottom: 0,
+                  paddingBottom: 0,
+                  height: 'auto',
+                  minHeight: 0
+                }}
+              >
                 {/* Header */}
                 <div className="text-center mb-6 border-b-2 border-black pb-3">
-                  <img 
-                    src="/WhatsApp_Image_2025-12-24_at_7.19.38_PM-removebg-preview.png" 
-                    alt="Haji Nawab Din Optical Service" 
+                  <img
+                    src="/WhatsApp_Image_2025-12-24_at_7.19.38_PM-removebg-preview.png"
+                    alt="Haji Nawab Din Optical Service"
                     className="mx-auto mb-2"
-                    style={{ maxWidth: '200px', height: 'auto' }}
                   />
                   <div className="text-xs text-black font-bold space-y-1">
                     <p className="font-bold">Address</p>
@@ -1345,7 +1365,7 @@ const Invoice = ({ initialCustomerId }) => {
                 <div className="flex flex-col gap-2 mb-4">
                   <div>
                     <h3 className="font-bold text-black mb-1 text-xs">Slip Details</h3>
-                    <p className="text-xs text-black font-bold">Slip No: <span className="font-bold">{customer.customerId || (customer._id ? customer._id.slice(-8).toUpperCase() : 'N/A')}</span></p>
+                    <p className="text-xs text-black font-bold">Slip No: <span className="font-bold">{generateAlphanumericInvoiceNo(customer.customerId, customer._id)}</span></p>
                     <p className="text-xs text-black font-bold">Date: <span className="font-bold">{formatDateTime(customer.createdAt)}</span></p>
                   </div>
                   <div>
@@ -1455,12 +1475,12 @@ const Invoice = ({ initialCustomerId }) => {
                 {/* Footer - Last Element */}
                 <div className="text-center border-t-2 border-black invoice-footer" style={{ paddingTop: '4px', marginTop: '4px', marginBottom: 0, paddingBottom: 0 }}>
                   <p className="text-xs text-black font-bold" style={{ marginBottom: '1px', marginTop: 0 }}>فٹنگ و مرمت کے دوران فریم جل جانے یا شیشہ ٹوٹ جانے کی فرم ذمہ دار نہ ہوگی</p>
-                  <p className="text-xs text-black font-bold" style={{ marginTop: '1px', marginBottom: 0, paddingBottom: 0 }}>15 یوم کے بعد عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی</p>
+                  <p className="text-xs text-black font-bold" style={{ marginTop: '1px', marginBottom: 0, paddingBottom: 0 }}>یوم کے بعد عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی ۱۵</p>
                 </div>
               </div>
-              );
-            });
-          })()}
+            );
+          });
+        })()}
       </div>
 
       {!selectedCustomer && !loading && (

@@ -615,7 +615,7 @@ const Invoice = ({ initialCustomerId }) => {
       doc.setFont('helvetica', 'bold');
       doc.text('فٹنگ و مرمت کے دوران فریم جل جانے یا شیشہ ٹوٹ جانے کی فرم ذمہ دار نہ ہوگی', centerX, yPos, { align: 'center' });
       yPos += 5;
-      doc.text("عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی، پندرہ یوم کے بعد۔", centerX, yPos, { align: 'center' }); // Updated with Urdu numerals
+      doc.text("عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی، پندرہ یوم کے بعد۔  ", centerX, yPos, { align: 'center' }); // Updated with Urdu numerals
       yPos += 5;
 
       doc.setFontSize(7);

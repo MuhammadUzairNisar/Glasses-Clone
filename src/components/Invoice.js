@@ -835,7 +835,7 @@ const Invoice = ({ initialCustomerId }) => {
         doc.setFont('helvetica', 'bold');
         doc.text('فٹنگ و مرمت کے دوران فریم جل جانے یا شیشہ ٹوٹ جانے کی فرم ذمہ دار نہ ہوگی', centerX, yPos, { align: 'center' });
         yPos += 5;
-        doc.text('یوم کے بعد عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی ۱۵', centerX, yPos, { align: 'center' });
+        doc.text("عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی، پندرہ یوم کے بعد۔ ", centerX, yPos, { align: 'center' });
       });
 
       // Save PDF
@@ -1475,7 +1475,7 @@ const Invoice = ({ initialCustomerId }) => {
                 {/* Footer - Last Element */}
                 <div className="text-center border-t-2 border-black invoice-footer" style={{ paddingTop: '4px', marginTop: '4px', marginBottom: 0, paddingBottom: 0 }}>
                   <p className="text-xs text-black font-bold" style={{ marginBottom: '1px', marginTop: 0 }}>فٹنگ و مرمت کے دوران فریم جل جانے یا شیشہ ٹوٹ جانے کی فرم ذمہ دار نہ ہوگی</p>
-                  <p className="text-xs text-black font-bold" style={{ marginTop: '1px', marginBottom: 0, paddingBottom: 0 }}>یوم کے بعد عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی ۱۵</p>
+                  <p className="text-xs text-black font-bold" style={{ marginTop: '1px', marginBottom: 0, paddingBottom: 0 }}>عینک گم ہو جانے کی صورت میں فرم کی کوئی ذمہ داری نہ ہوگی، پندرہ یوم کے بعد۔</p>
                 </div>
               </div>
             );

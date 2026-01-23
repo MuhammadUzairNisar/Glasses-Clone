@@ -253,7 +253,15 @@ const Invoice = ({ initialCustomerId }) => {
     if (dateValue.seconds) {
       return new Date(dateValue.seconds * 1000);
     }
-    if (typeof dateValue === 'string' || typeof dateValue === 'number') {
+    if (typeof dateValue === 'string') {
+      // Handle YYYY-MM-DD format explicitly to avoid timezone issues
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+        const [year, month, day] = dateValue.split('-').map(Number);
+        return new Date(year, month - 1, day);
+      }
+      return new Date(dateValue);
+    }
+    if (typeof dateValue === 'number') {
       return new Date(dateValue);
     }
     return null;
@@ -510,6 +518,12 @@ const Invoice = ({ initialCustomerId }) => {
       doc.text(`Date: ${dateStr}`, margin, yPos);
       yPos += 4;
 
+      if (customerData.dueDate) {
+        const dueDateStr = formatDate(customerData.dueDate);
+        doc.text(`Due Date: ${dueDateStr}`, margin, yPos);
+        yPos += 4;
+      }
+
       doc.text(`Customer: ${customerData.customerName || 'N/A'}`, margin, yPos);
       yPos += 4;
 
@@ -729,6 +743,12 @@ const Invoice = ({ initialCustomerId }) => {
         const dateStr = formatDateTime(customer.createdAt);
         doc.text(`Date: ${dateStr}`, margin, yPos);
         yPos += 4;
+
+        if (customer.dueDate) {
+          const dueDateStr = formatDate(customer.dueDate);
+          doc.text(`Due Date: ${dueDateStr}`, margin, yPos);
+          yPos += 4;
+        }
 
         doc.text(`Customer: ${customer.customerName || 'N/A'}`, margin, yPos);
         yPos += 4;
@@ -1113,6 +1133,9 @@ const Invoice = ({ initialCustomerId }) => {
                 <h3 className="font-semibold text-gray-700 mb-2">Invoice Details</h3>
                 <p className="text-sm text-gray-600">Invoice No: <span className="font-medium">{selectedCustomer.customerId || (selectedCustomer._id ? selectedCustomer._id.slice(-8).toUpperCase() : 'N/A')}</span></p>
                 <p className="text-sm text-gray-600">Date & Time: <span className="font-medium">{formatDateTime(selectedCustomer.createdAt)}</span></p>
+                {selectedCustomer.dueDate && (
+                  <p className="text-sm text-gray-600">Due Date: <span className="font-medium">{formatDate(selectedCustomer.dueDate)}</span></p>
+                )}
               </div>
               <div>
                 <h3 className="font-semibold text-gray-700 mb-2">Bill To</h3>
@@ -1367,6 +1390,7 @@ const Invoice = ({ initialCustomerId }) => {
                     <h3 className="font-bold text-black mb-1 text-xs">Slip Details</h3>
                     <p className="text-xs text-black font-bold">Slip No: <span className="font-bold">{generateAlphanumericInvoiceNo(customer.customerId, customer._id)}</span></p>
                     <p className="text-xs text-black font-bold">Date: <span className="font-bold">{formatDateTime(customer.createdAt)}</span></p>
+                    <p className="text-xs text-black font-bold">Due Date: <span className="font-bold">{customer.dueDate && customer.dueDate.trim() !== '' ? formatDate(customer.dueDate) : 'N/A'}</span></p>
                   </div>
                   <div>
                     <h3 className="font-bold text-black mb-1 text-xs">Bill To</h3>

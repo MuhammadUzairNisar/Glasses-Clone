@@ -109,6 +109,80 @@ async function createAuthUsers() {
   return createdUsers;
 }
 
+// Generate a strong password
+function generateStrongPassword(length = 20) {
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const numbers = '0123456789';
+  const special = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+  const allChars = uppercase + lowercase + numbers + special;
+  
+  let password = '';
+  
+  // Ensure at least one character from each set
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += numbers[Math.floor(Math.random() * numbers.length)];
+  password += special[Math.floor(Math.random() * special.length)];
+  
+  // Fill the rest randomly
+  for (let i = password.length; i < length; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)];
+  }
+  
+  // Shuffle the password
+  return password.split('').sort(() => Math.random() - 0.5).join('');
+}
+
+// Update passwords for specific users
+async function updateUserPasswords() {
+  console.log('\n🔐 Updating user passwords...');
+  
+  const usersToUpdate = [
+    {
+      email: 'admin@hajinawabopticals.com',
+      displayName: 'Admin User',
+      password: 'H@j!N@w@b@dm!n2024#Opt!c@ls'
+    },
+    {
+      email: 'staff@hajinawabopticals.com',
+      displayName: 'Staff User',
+      password: 'H@j!N@w@bSt@ff2024#Opt!c@ls'
+    }
+  ];
+
+  const updatedUsers = [];
+  
+  for (const userData of usersToUpdate) {
+    try {
+      // Get user by email
+      const user = await admin.auth().getUserByEmail(userData.email);
+      
+      // Update the user's password with the fixed strong password
+      await admin.auth().updateUser(user.uid, {
+        password: userData.password
+      });
+      
+      console.log(`  ✓ Updated password for: ${userData.email}`);
+      console.log(`    New Password: ${userData.password}`);
+      
+      updatedUsers.push({
+        email: userData.email,
+        displayName: userData.displayName,
+        password: userData.password
+      });
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        console.log(`  ⚠ User ${userData.email} not found, skipping...`);
+      } else {
+        console.error(`  ✗ Error updating password for ${userData.email}:`, error.message);
+      }
+    }
+  }
+  
+  return updatedUsers;
+}
+
 // Seed Categories
 async function seedCategories() {
   console.log('\n📦 Seeding categories...');
@@ -1013,10 +1087,172 @@ async function seedDatabase() {
   }
 }
 
-// Run the seeding script
-if (require.main === module) {
-  seedDatabase();
+// Function to only update passwords
+async function updatePasswordsOnly() {
+  try {
+    console.log('🚀 Starting password update...\n');
+    
+    // Initialize Firebase
+    initializeFirebase();
+    
+    // Update passwords
+    const updatedUsers = await updateUserPasswords();
+    
+    // Summary
+    console.log('\n' + '='.repeat(50));
+    console.log('✅ Password update completed successfully!');
+    console.log('='.repeat(50));
+    console.log(`\n📧 Updated Passwords:`);
+    updatedUsers.forEach(user => {
+      console.log(`\n  Email: ${user.email}`);
+      console.log(`  Display Name: ${user.displayName}`);
+      console.log(`  New Password: ${user.password}`);
+      console.log(`  ⚠️  IMPORTANT: Save this password securely!`);
+    });
+    console.log('\n✨ Passwords have been updated!');
+    
+  } catch (error) {
+    console.error('\n✗ Error during password update:', error);
+    process.exit(1);
+  } finally {
+    // Close Firebase Admin
+    process.exit(0);
+  }
 }
 
-module.exports = { seedDatabase };
+// Function to add due dates to existing customers
+async function addDueDatesToCustomers() {
+  console.log('\n📅 Adding due dates to existing customers...');
+  
+  const db = admin.firestore();
+  const customersRef = db.collection('customers');
+  
+  try {
+    // Get all customers
+    const snapshot = await customersRef.get();
+    
+    if (snapshot.empty) {
+      console.log('  ⚠ No customers found in database');
+      return 0;
+    }
+    
+    let updatedCount = 0;
+    let skippedCount = 0;
+    let batchCount = 0;
+    const BATCH_SIZE = 500; // Firestore batch limit
+    
+    // Process each customer
+    const docs = snapshot.docs;
+    let currentBatch = db.batch();
+    
+    for (let i = 0; i < docs.length; i++) {
+      const doc = docs[i];
+      const customerData = doc.data();
+      
+      // Only update if dueDate is missing or empty
+      if (!customerData.dueDate || customerData.dueDate === '' || customerData.dueDate.trim() === '') {
+        // Set a default due date (30 days from creation date, or current date if no creation date)
+        let defaultDueDate = '';
+        
+        if (customerData.createdAt) {
+          // If createdAt exists, calculate 30 days from creation
+          let createdDate;
+          if (customerData.createdAt.toDate) {
+            createdDate = customerData.createdAt.toDate();
+          } else if (customerData.createdAt.seconds) {
+            createdDate = new Date(customerData.createdAt.seconds * 1000);
+          } else if (customerData.createdAt._seconds) {
+            createdDate = new Date(customerData.createdAt._seconds * 1000);
+          } else {
+            createdDate = new Date();
+          }
+          
+          // Add 30 days
+          const dueDate = new Date(createdDate);
+          dueDate.setDate(dueDate.getDate() + 30);
+          
+          // Format as YYYY-MM-DD
+          defaultDueDate = dueDate.toISOString().split('T')[0];
+        } else {
+          // If no creation date, use current date + 30 days
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + 30);
+          defaultDueDate = dueDate.toISOString().split('T')[0];
+        }
+        
+        currentBatch.update(doc.ref, { dueDate: defaultDueDate });
+        batchCount++;
+        updatedCount++;
+        
+        // Commit batch if it reaches the limit
+        if (batchCount >= BATCH_SIZE) {
+          await currentBatch.commit();
+          console.log(`  ✓ Committed batch of ${batchCount} updates...`);
+          currentBatch = db.batch();
+          batchCount = 0;
+        }
+      } else {
+        skippedCount++;
+      }
+    }
+    
+    // Commit remaining updates
+    if (batchCount > 0) {
+      await currentBatch.commit();
+      console.log(`  ✓ Committed final batch of ${batchCount} updates...`);
+    }
+    
+    console.log(`  ✓ Updated ${updatedCount} customers with due dates`);
+    if (skippedCount > 0) {
+      console.log(`  ⚠ Skipped ${skippedCount} customers (already have due dates)`);
+    }
+    
+    return updatedCount;
+  } catch (error) {
+    console.error('  ✗ Error adding due dates:', error.message);
+    console.error('  Full error:', error);
+    throw error;
+  }
+}
+
+// Function to only add due dates
+async function addDueDatesOnly() {
+  try {
+    console.log('🚀 Starting due date update...\n');
+    
+    // Initialize Firebase
+    initializeFirebase();
+    
+    // Add due dates to existing customers
+    const updatedCount = await addDueDatesToCustomers();
+    
+    // Summary
+    console.log('\n' + '='.repeat(50));
+    console.log('✅ Due date update completed successfully!');
+    console.log('='.repeat(50));
+    console.log(`\n📅 Updated ${updatedCount} customers with due dates`);
+    console.log('\n✨ Due dates have been added to existing customers!');
+    
+  } catch (error) {
+    console.error('\n✗ Error during due date update:', error);
+    process.exit(1);
+  } finally {
+    // Close Firebase Admin
+    process.exit(0);
+  }
+}
+
+// Run the seeding script
+if (require.main === module) {
+  // Check if --update-passwords flag is passed
+  if (process.argv.includes('--update-passwords')) {
+    updatePasswordsOnly();
+  } else if (process.argv.includes('--add-due-dates')) {
+    addDueDatesOnly();
+  } else {
+    seedDatabase();
+  }
+}
+
+module.exports = { seedDatabase, updatePasswordsOnly, addDueDatesToCustomers, addDueDatesOnly };
 

@@ -136,7 +136,7 @@ function generateStrongPassword(length = 20) {
 
 // Update passwords for specific users
 async function updateUserPasswords() {
-  console.log('\n🔐 Updating user passwords...');
+  
   
   const usersToUpdate = [
     {

@@ -12,7 +12,6 @@ const OpticsForm = ({ onSaveSuccess }) => {
     familyMember: '', // Family member name
     familyMemberRelation: '', // Relation (Father, Mother, Son, Daughter, etc.)
     doctorName: '', // Doctor name
-    dueDate: '', // Due date for customer
     hasPrescription: false, // Prescription checkbox
     isRevise: false, // Revise checkbox
     prescription: {
@@ -226,7 +225,6 @@ const OpticsForm = ({ onSaveSuccess }) => {
       familyMember: '',
       familyMemberRelation: '',
       doctorName: '',
-      dueDate: '',
       hasPrescription: false,
       isRevise: false,
       prescription: {
@@ -534,15 +532,6 @@ const OpticsForm = ({ onSaveSuccess }) => {
                 value={formData.doctorName}
                 onChange={handleInputChange}
                 placeholder="Enter doctor name"
-              />
-            </div>
-            <div className="form-group">
-              <label>Due Date</label>
-              <input
-                type="date"
-                name="dueDate"
-                value={formData.dueDate}
-                onChange={handleInputChange}
               />
             </div>
             <div className="form-group">

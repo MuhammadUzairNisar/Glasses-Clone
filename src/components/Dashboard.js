@@ -26,7 +26,7 @@ const Dashboard = () => {
       <div className="bg-gradient-to-r from-primary-500 to-purple-600 text-white shadow-md sticky top-0 z-50">
         <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <h1 className="text-xl sm:text-2xl font-semibold">Admin Dashboard</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold">Haji Nawab Din Optical Service - Admin Dashboard</h1>
             <div className="flex items-center gap-4">
               <span className="text-sm sm:text-base">Welcome, {user?.email}</span>
               <button 

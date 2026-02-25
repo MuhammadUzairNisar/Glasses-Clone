@@ -2,9 +2,30 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Only signed-in users can read/write (app uses: categories, items, stock, customers)
+    // Allow authenticated users to read and write all collections
     match /{document=**} {
       allow read, write: if request.auth != null;
+    }
+    
+    // Specific rules for each collection (optional - more granular control)
+    match /categories/{categoryId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    match /items/{itemId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    match /stock/{stockId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    match /customers/{customerId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
     }
   }
 }

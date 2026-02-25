@@ -2,10 +2,8 @@
 
 ## Step 1: Get Firebase Service Account Key
 
-**Important:** The service account key determines **which Firebase project** gets seeded. It must be from the **same project** as your app (the one in `.env` as `REACT_APP_FIREBASE_PROJECT_ID`). If your app uses `glasses-project-clone`, download the key from that project.
-
 1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Select the project you want to seed (e.g. **glasses-project-clone** if that’s in your `.env`)
+2. Select your project
 3. Click on the gear icon ⚙️ next to "Project Overview"
 4. Select **"Project settings"**
 5. Go to the **"Service accounts"** tab
@@ -39,8 +37,8 @@ node scripts/seed-firebase.js
 The script will:
 
 1. ✅ Create 2 authentication users:
-   - `admin@opticalservice.com` (Password: `Admin@123`)
-   - `staff@opticalservice.com` (Password: `Staff@123`)
+   - `admin@hajinawabopticals.com` (Password: `Admin@123`)
+   - `staff@hajinawabopticals.com` (Password: `Staff@123`)
 
 2. ✅ Seed 5 categories:
    - Frames

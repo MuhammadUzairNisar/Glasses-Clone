@@ -45,7 +45,7 @@ const SignIn = () => {
           <div className="logo-container">
             <div className="logo-icon">👓</div>
           </div>
-          <h1>OPTICAL SERVICE</h1>
+          <h1>HAJI NAWAB DIN OPTICAL SERVICE</h1>
           <p className="subtitle">Welcome back! Please sign in to continue</p>
         </div>
         

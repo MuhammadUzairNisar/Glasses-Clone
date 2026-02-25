@@ -1103,7 +1103,7 @@ const Invoice = ({ initialCustomerId }) => {
           <div>
             {/* Header */}
             <div className="text-center mb-8 border-b-2 border-gray-300 pb-4">
-              <h1 className="text-3xl sm:text-4xl font-bold text-primary-600 mb-2">OPTICAL SERVICE</h1>
+              <h1 className="text-3xl sm:text-4xl font-bold text-primary-600 mb-2">HAJI NAWAB DIN OPTICAL SERVICE</h1>
               <p className="text-lg text-gray-600">Invoice</p>
             </div>
 
@@ -1347,7 +1347,7 @@ const Invoice = ({ initialCustomerId }) => {
                 <div className="text-center mb-6 border-b-2 border-black pb-3">
                   <img
                     src="/WhatsApp_Image_2025-12-24_at_7.19.38_PM-removebg-preview.png"
-                    alt="Optical Service"
+                    alt="Haji Nawab Din Optical Service"
                     className="mx-auto mb-2"
                   />
                   <div className="text-xs text-black font-bold space-y-1">

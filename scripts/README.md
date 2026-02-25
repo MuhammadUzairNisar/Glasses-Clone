@@ -26,6 +26,12 @@ This script seeds your Firebase Firestore database with initial data and creates
    npm run seed:firebase
    ```
 
+   If your `.env` points to a different project than your service key, seed the project from the key:
+   ```bash
+   npm run seed:firebase:use-key
+   ```
+   Or: `npm run seed:firebase -- --use-service-project`
+
    Or directly:
    ```bash
    node scripts/seed-firebase.js
@@ -34,8 +40,8 @@ This script seeds your Firebase Firestore database with initial data and creates
 ## What Gets Seeded
 
 ### Authentication Users
-- `admin@hajinawabopticals.com` (Password: `Admin@123`)
-- `staff@hajinawabopticals.com` (Password: `Staff@123`)
+- `admin@opticalservice.com` (Password: `Admin@123`)
+- `staff@opticalservice.com` (Password: `Staff@123`)
 
 ### Categories (5)
 - Frames
@@ -70,6 +76,10 @@ This script seeds your Firebase Firestore database with initial data and creates
 ### Error: "Permission denied"
 - Check that your service account has proper permissions
 - Ensure Firestore and Authentication are enabled in Firebase Console
+
+### Project mismatch (`.env` vs service key)
+- If your app uses project **A** (in `.env`) but your key is for project **B**, run:
+  `npm run seed:firebase:use-key` to seed project **B**. To see that data in the app, update `.env` with project **B**’s Firebase config from the Console.
 
 ### Users already exist
 - The script will skip creating users that already exist

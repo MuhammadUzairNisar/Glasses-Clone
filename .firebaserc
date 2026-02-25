@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "default": "glasses-project-clone",
+    "y": "glasses-project-clone",
+    "staging": "glasses-project-clone"
+  },
+  "targets": {},
+  "etags": {}
+}

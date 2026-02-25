@@ -309,7 +309,7 @@
 
   /* Footer adjustments - disabled to prevent extra page */
   /* .invoice-content:last-of-type::after {
-    content: 'HAJI NAWAB DIN & SONS OPTICAL\A Prop: Adeel Feroz\A 0321-7940339, 0321-6643839\A 041-8725875';
+    content: 'OPTICAL SERVICE\A Prop: Adeel Feroz\A 0321-7940339, 0321-6643839\A 041-8725875';
     position: static;
     display: block;
     text-align: center;

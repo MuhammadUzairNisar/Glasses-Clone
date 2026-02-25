@@ -16,6 +16,23 @@ const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
 
+// When true, seed the project from the service account file even if it doesn't match .env
+const useServiceAccountProject = process.env.SEED_USE_SERVICE_ACCOUNT_PROJECT === '1' ||
+  process.argv.includes('--use-service-project');
+
+// Load REACT_APP_FIREBASE_PROJECT_ID from .env (same project the app uses)
+function getProjectIdFromEnv() {
+  const envPath = path.join(__dirname, '..', '.env');
+  if (!fs.existsSync(envPath)) return null;
+  try {
+    const content = fs.readFileSync(envPath, 'utf8');
+    const m = content.match(/REACT_APP_FIREBASE_PROJECT_ID=(.+)/);
+    return m ? m[1].trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 // Initialize Firebase Admin
 function initializeFirebase() {
   try {
@@ -25,30 +42,69 @@ function initializeFirebase() {
       return;
     }
 
-    // Try to use service account key file
-    const serviceAccountPath = path.join(__dirname, '..', 'firebase-service-account.json');
-    
+    const projectIdFromEnv = getProjectIdFromEnv();
+    const rootDir = path.join(__dirname, '..');
+    const serviceAccountPath = path.join(rootDir, 'firebase-service-account.json');
+
     if (fs.existsSync(serviceAccountPath)) {
       const serviceAccount = require(serviceAccountPath);
+      const projectId = serviceAccount.project_id || '(unknown)';
+
+      if (projectIdFromEnv && projectId !== projectIdFromEnv && !useServiceAccountProject) {
+        console.error('\n✗ Project mismatch!');
+        console.error(`  Your .env uses:     ${projectIdFromEnv} (this is what your app uses)`);
+        console.error(`  Your service key:  ${projectId}`);
+        console.error('\n  To seed the same project as your app:');
+        console.error(`  1. Open Firebase Console → select project "${projectIdFromEnv}"`);
+        console.error('  2. Project settings → Service accounts → Generate new private key');
+        console.error(`  3. Save that file as firebase-service-account.json in: ${rootDir}`);
+        console.error('  4. Run: npm run seed:firebase\n');
+        console.error('  Or to seed the project from your current service key:');
+        console.error('  Run: npm run seed:firebase -- --use-service-project\n');
+        process.exit(1);
+      }
+      if (useServiceAccountProject && projectIdFromEnv && projectId !== projectIdFromEnv) {
+        console.log(`  (Seeding project from service key: ${projectId}. Your .env still points to ${projectIdFromEnv}.)`);
+      }
+
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
       });
       console.log('✓ Firebase Admin initialized with service account key');
-    } else {
-      // Try to use default credentials (for Firebase emulator or environment variable)
-      admin.initializeApp();
-      console.log('✓ Firebase Admin initialized with default credentials');
+      console.log(`  → Seeding project: ${projectId}`);
+      return;
     }
+
+    // No service account: use project from .env + Application Default Credentials
+    if (projectIdFromEnv) {
+      try {
+        admin.initializeApp({ projectId: projectIdFromEnv });
+        console.log('✓ Firebase Admin initialized with default credentials');
+        console.log(`  → Seeding project: ${projectIdFromEnv}`);
+        return;
+      } catch (e) {
+        console.error('\n✗ No service account key found.');
+        console.error(`  To seed "${projectIdFromEnv}":`);
+        console.error('  1. Firebase Console → select project "' + projectIdFromEnv + '"');
+        console.error('  2. Project settings → Service accounts → Generate new private key');
+        console.error('  3. Save as firebase-service-account.json in project root');
+        console.error('  4. Run: npm run seed:firebase\n');
+        process.exit(1);
+      }
+    }
+
+    admin.initializeApp();
+    console.log('✓ Firebase Admin initialized with default credentials');
   } catch (error) {
     if (error.code === 'app/already-exists') {
       console.log('✓ Firebase Admin already initialized');
       return;
     }
     console.error('✗ Error initializing Firebase Admin:', error.message);
-    console.error('\nPlease ensure you have:');
-    console.error('1. A firebase-service-account.json file in the root directory, OR');
-    console.error('2. GOOGLE_APPLICATION_CREDENTIALS environment variable set');
-    console.error('\nSee scripts/SETUP.md for detailed instructions.');
+    console.error('\nTo seed the project in your .env:');
+    console.error('  1. Firebase Console → your project → Project settings → Service accounts');
+    console.error('  2. Generate new private key → save as firebase-service-account.json in project root');
+    console.error('  3. Run: npm run seed:firebase\n');
     process.exit(1);
   }
 }
@@ -59,13 +115,13 @@ async function createAuthUsers() {
   
   const users = [
     {
-      email: 'admin@hajinawabopticals.com',
+      email: 'admin@opticalservice.com',
       password: 'Admin@123',
       displayName: 'Admin User',
       emailVerified: true
     },
     {
-      email: 'staff@hajinawabopticals.com',
+      email: 'staff@opticalservice.com',
       password: 'Staff@123',
       displayName: 'Staff User',
       emailVerified: true

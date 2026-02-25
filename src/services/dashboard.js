@@ -1,13 +1,9 @@
 import { getCustomers } from './customers';
-import { getStockItems, getStockStats } from './stock';
 
 // Get dashboard statistics
 export const getDashboardStats = async () => {
   try {
-    const [customers, stockStats] = await Promise.all([
-      getCustomers(),
-      getStockStats()
-    ]);
+    const customers = await getCustomers();
 
     // Helper function to parse Firestore timestamps
     const parseDate = (dateValue) => {
